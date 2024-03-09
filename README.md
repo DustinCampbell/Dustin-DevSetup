@@ -16,11 +16,33 @@
 
 I use Windows Terminal as my terminal interface. A better theme can be acquired at [Windows Terminal Themes](https://windowsterminalthemes.dev/). I particularly like "Dark Pastel".
 
-- Install the latest official release version of [PowerShell 7](https://github.com/PowerShell/PowerShell/releases/)
+- Install [PowerShell 7](https://github.com/PowerShell/PowerShell/):
+  ```PowerShell
+  winget install microsoft.powershell
+  ```
+
 - Install [Starship](https://starship.rs/)
-  - From the Windows command-line, use `winget` to install: `winget install -id Starship.Starship`
-- Copy `files\starship.toml` to `$HOME\.starship\`
-- Copy contents of `files\profile.ps1` into the PowerShell profile at `$PROFILE`
+  ```PowerShell
+  winget install --id Starship.Starship
+  ```
+
+  - Copy `files\starship.toml` to `$HOME\.starship\`
+  - Copy contents of `files\profile.ps1` into the PowerShell profile at `$PROFILE`
+
+- Install [GitHub CLI](https://github.com/cli/cli).
+  ```PowerShell
+  winget install --id GitHub.cli
+  ```
+
+- Login to GitHub.
+  ```PowerShell
+  gh auth login
+  ```
+
+- Install [Midnight Commander](https://midnight-commander.org/).
+  ```PowerShell
+  winget install --id GNU.MidnightCommander
+  ```
 
 ### macOS
 
