@@ -3,10 +3,16 @@
 ## Programmer Fonts
 
 - Install [Nerd Fonts](https://www.nerdfonts.com/font-downloads)
-- For editors, such as VS, VS Code, or Rider, use 'FiraMono Nerd Font'
-- For command-line, use 'FiraCode Nerd Font'
+- For editors, such as VS, VS Code, or Rider, use 'FiraCode Nerd Font'
+- For command-line, use 'FiraMono Nerd Font'
 
-## Command Prompt
+## Themes
+
+- I particularly like [Dracula](https://draculatheme.com/), which offers theemes for tons of different applications.
+
+## Terminal
+
+### Windows
 
 I use Windows Terminal as my terminal interface. A better theme can be acquired at [Windows Terminal Themes](https://windowsterminalthemes.dev/). I particularly like "Dark Pastel".
 
@@ -15,3 +21,47 @@ I use Windows Terminal as my terminal interface. A better theme can be acquired 
   - From the Windows command-line, use `winget` to install: `winget install -id Starship.Starship`
 - Copy `files\starship.toml` to `$HOME\.starship\`
 - Copy contents of `files\profile.ps1` into the PowerShell profile at `$PROFILE`
+
+### macOS
+
+I use [Warp](https://www.warp.dev/) as my terminal interface.
+
+- Open the macOS terminal and install [Homebrew](https://brew.sh/).
+  ```zsh
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  ```
+
+- Install [Nerd Fonts](https://www.nerdfonts.com/font-downloads).
+  ```zsh
+  brew tap homebrew/cask-fonts
+  brew install --cask font-fira-code-nerd-font
+  brew install --cask font-fira-mono-nerd-font
+  ```
+
+- Install [Warp](https://www.warp.dev/).
+  ```zsh
+  brew install --cask warp
+  ```
+
+- Install [Starship](https://starship.rs/).
+  ```zsh
+  brew install starship
+  ```
+
+  - Copy `files\starship.toml` to `~/.config/`.
+  - Copy `files\.zshrc` to `~`.
+
+- Install [GitHub CLI](https://github.com/cli/cli).
+  ```zsh
+  brew install gh
+  ```
+
+- Login to GitHub.
+  ```zsh
+  gh auth login
+  ```
+
+- Install [Midnight Commander](https://midnight-commander.org/).
+  ```zsh
+  brew install midnight-commander
+  ```
