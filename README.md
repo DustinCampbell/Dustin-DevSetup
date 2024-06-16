@@ -87,3 +87,9 @@ I use [Warp](https://www.warp.dev/) as my terminal interface.
   ```zsh
   brew install midnight-commander
   ```
+  
+## Git Aliases
+```zsh
+git config --global alias.last 'log -1 HEAD --stat'
+git config --global alias.list 'log --oneline'
+```
