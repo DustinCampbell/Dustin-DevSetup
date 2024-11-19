@@ -83,6 +83,9 @@ Set-Alias open Explorer
 
 Set-LocationProjects | Out-Null
 
+# Use new MSBuild terminal logger
+$ENV:MSBUILDTERMINALLOGGER = "auto"
+
 # Initialize Starship Prompt
 $ENV:STARSHIP_CONFIG = "$HOME\.starship\starship.toml"
 Invoke-Expression (&starship init powershell)
