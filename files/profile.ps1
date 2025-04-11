@@ -64,24 +64,38 @@ function Set-LocationProjects() {
 
     if ($projectsPath -eq $null) {
         Write-Error "Please define the '${envName}' environment variable to set that location."
-        return $false
     }
-
-    if (-not (Test-Path $projectsPath)) {
+    elseif (-not (Test-Path $projectsPath)) {
         Write-Error "'${envName}' environment variable does not exist: {$projectsPath}."
-        return $false
     }
+    else {
+        Set-Location -Path $projectsPath
+    }
+}
 
-    Set-Location -Path $projectsPath
+function Stop-ProcessesWithName($name) {
+    $processes = Get-Process -Name $name -ErrorAction SilentlyContinue
+    foreach ($process in $processes) {
+        Stop-Process -Id $process.Id -Force
+    }
+}
 
-    return $true
+function Stop-MSBuildProcesses {
+    Stop-ProcessesWithName "msbuild"
+}
+
+function Stop-DotnetProcesses {
+    Stop-ProcessesWithName "dotnet"
 }
 
 Set-Alias init-vs Initialize-VS
 Set-Alias projects Set-LocationProjects
 Set-Alias open Explorer
+Set-Alias stop-processes Stop-ProcessesWithName
+Set-Alias stop-msbuild Stop-MSBuildProcesses
+Set-Alias stop-dotnet Stop-DotnetProcesses
 
-Set-LocationProjects | Out-Null
+Set-LocationProjects
 
 # Use new MSBuild terminal logger
 $ENV:MSBUILDTERMINALLOGGER = "auto"
