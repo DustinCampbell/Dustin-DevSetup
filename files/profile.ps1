@@ -88,17 +88,26 @@ function Stop-DotnetProcesses {
     Stop-ProcessesWithName "dotnet"
 }
 
+function Stop-VBCSCompilerProcesses {
+    Stop-ProcessesWithName "dotnet"
+}
+
+function Stop-BuildProcesses {
+    Stop-MSBuildProcesses
+    Stop-DotnetProcesses
+    Stop-VBCSCompilerProcesses
+}
+
 Set-Alias init-vs Initialize-VS
 Set-Alias projects Set-LocationProjects
 Set-Alias open Explorer
 Set-Alias stop-processes Stop-ProcessesWithName
 Set-Alias stop-msbuild Stop-MSBuildProcesses
 Set-Alias stop-dotnet Stop-DotnetProcesses
+Set-Alias stop-vbcscompiler Stop-VBCSCompilerProcesses
+Set-Alias stop-buildprocs Stop-BuildProcesses
 
 Set-LocationProjects
-
-# Use new MSBuild terminal logger
-$ENV:MSBUILDTERMINALLOGGER = "auto"
 
 # Initialize Starship Prompt
 $ENV:STARSHIP_CONFIG = "$HOME\.starship\starship.toml"
