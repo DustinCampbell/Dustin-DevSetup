@@ -89,7 +89,7 @@ function Stop-DotnetProcesses {
 }
 
 function Stop-VBCSCompilerProcesses {
-    Stop-ProcessesWithName "dotnet"
+    Stop-ProcessesWithName "VBCSCompiler"
 }
 
 function Stop-BuildProcesses {
