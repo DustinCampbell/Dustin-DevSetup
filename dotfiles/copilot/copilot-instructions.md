@@ -15,6 +15,7 @@
 * Do not run benchmarks locally merely to confirm that they execute; I use a dedicated VM for benchmark runs.
 * When I say Visual Studio is open, avoid commands that compile the repository or interfere with its files unless explicitly requested.
 * Wrap Markdown prose at 100 columns by default. When editing an existing Markdown file, infer and follow that file's established wrapping convention instead.
+* Do not manually wrap Markdown prose in GitHub pull request descriptions. Keep each paragraph and list item on a single source line so GitHub does not preserve unwanted line breaks.
 
 ## Git Commit Messages
 
