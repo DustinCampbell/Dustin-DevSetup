@@ -26,6 +26,12 @@ $mappings = @(
         Mode = $Mode
     },
     [pscustomobject]@{
+        Name = "Git identity"
+        Source = Join-Path $repositoryRoot "dotfiles\git\identity.gitconfig"
+        Destination = Join-Path $HOME ".config\devsetup\identity.gitconfig"
+        Mode = $Mode
+    },
+    [pscustomobject]@{
         Name = "PowerShell profile source"
         Source = Join-Path $repositoryRoot "dotfiles\powershell\profile.ps1"
         Destination = Join-Path $HOME ".config\devsetup\profile.ps1"
@@ -132,7 +138,17 @@ $states = @(
     }
 )
 
-$gitIncludePath = Join-Path $HOME ".config\devsetup\gitconfig"
+$gitIncludeMappings = @(
+    [pscustomobject]@{
+        Name = "Global Git configuration include"
+        Path = Join-Path $HOME ".config\devsetup\gitconfig"
+    },
+    [pscustomobject]@{
+        Name = "Global Git identity include"
+        Path = Join-Path $HOME ".config\devsetup\identity.gitconfig"
+    }
+)
+
 $gitConfigEntries = @(& git config --global --list)
 if ($LASTEXITCODE -ne 0) {
     throw "Unable to read the global Git configuration."
@@ -145,29 +161,43 @@ $gitIncludes = @(
         ForEach-Object { $_.Substring($gitIncludePrefix.Length) }
 )
 
-$normalizedGitIncludePath = Get-NormalizedPath $gitIncludePath
-$hasGitInclude = $false
-foreach ($gitInclude in $gitIncludes) {
-    if ([string]::IsNullOrWhiteSpace($gitInclude)) {
-        continue
+function Test-GitInclude {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path
+    )
+
+    $normalizedPath = Get-NormalizedPath $Path
+    foreach ($gitInclude in $gitIncludes) {
+        if ([string]::IsNullOrWhiteSpace($gitInclude)) {
+            continue
+        }
+
+        if ($gitInclude.StartsWith("~/") -or $gitInclude.StartsWith("~\")) {
+            $gitInclude = Join-Path $HOME $gitInclude.Substring(2)
+        }
+
+        if (
+            [System.StringComparer]::OrdinalIgnoreCase.Equals(
+                (Get-NormalizedPath $gitInclude),
+                $normalizedPath
+            )
+        ) {
+            return $true
+        }
     }
 
-    if ($gitInclude.StartsWith("~/") -or $gitInclude.StartsWith("~\")) {
-        $gitInclude = Join-Path $HOME $gitInclude.Substring(2)
-    }
-
-    if (
-        [System.StringComparer]::OrdinalIgnoreCase.Equals(
-            (Get-NormalizedPath $gitInclude),
-            $normalizedGitIncludePath
-        )
-    ) {
-        $hasGitInclude = $true
-        break
-    }
+    $false
 }
 
-$gitIncludeState = if ($hasGitInclude) { "Current" } else { "Missing" }
+$gitIncludeStates = @(
+    foreach ($gitIncludeMapping in $gitIncludeMappings) {
+        [pscustomobject]@{
+            Mapping = $gitIncludeMapping
+            State = if (Test-GitInclude $gitIncludeMapping.Path) { "Current" } else { "Missing" }
+        }
+    }
+)
 
 if ($Check) {
     $hasDrift = $false
@@ -178,9 +208,16 @@ if ($Check) {
         }
     }
 
-    Write-Host ("{0,-8} {1}" -f $gitIncludeState.ToUpperInvariant(), "Global Git include: $gitIncludePath")
-    if ($gitIncludeState -ne "Current") {
-        $hasDrift = $true
+    foreach ($gitIncludeState in $gitIncludeStates) {
+        Write-Host (
+            "{0,-8} {1}: {2}" -f
+                $gitIncludeState.State.ToUpperInvariant(),
+                $gitIncludeState.Mapping.Name,
+                $gitIncludeState.Mapping.Path
+        )
+        if ($gitIncludeState.State -ne "Current") {
+            $hasDrift = $true
+        }
     }
 
     if ($hasDrift) {
@@ -256,14 +293,22 @@ foreach ($state in $states) {
     }
 }
 
-if ($gitIncludeState -eq "Current") {
-    Write-Host "Current: Global Git include"
-}
-elseif ($PSCmdlet.ShouldProcess("Global Git configuration", "Include $gitIncludePath")) {
-    & git config --global --add include.path $gitIncludePath
-    if ($LASTEXITCODE -ne 0) {
-        throw "Unable to add the managed Git configuration include."
+foreach ($gitIncludeState in $gitIncludeStates) {
+    $gitIncludeMapping = $gitIncludeState.Mapping
+    if ($gitIncludeState.State -eq "Current") {
+        Write-Host "Current: $($gitIncludeMapping.Name)"
     }
+    elseif (
+        $PSCmdlet.ShouldProcess(
+            "Global Git configuration",
+            "Include $($gitIncludeMapping.Path)"
+        )
+    ) {
+        & git config --global --add include.path $gitIncludeMapping.Path
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unable to add $($gitIncludeMapping.Name)."
+        }
 
-    Write-Host "Installed: Global Git include"
+        Write-Host "Installed: $($gitIncludeMapping.Name)"
+    }
 }

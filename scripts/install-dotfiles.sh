@@ -6,15 +6,18 @@ mode="link"
 replace=false
 check=false
 dry_run=false
+codespaces=${CODESPACES:-false}
 
 usage() {
     cat <<'EOF'
-Usage: install-dotfiles.sh [--copy] [--replace] [--check] [--dry-run]
+Usage: install-dotfiles.sh [--copy] [--replace] [--check] [--dry-run] [--codespaces]
 
   --copy      Copy files instead of creating symbolic links.
   --replace   Back up and replace conflicting destinations.
   --check     Report whether every destination is current.
   --dry-run   Report the installation actions without changing files.
+  --codespaces
+              Preserve the Git identity supplied by GitHub Codespaces.
 EOF
 }
 
@@ -31,6 +34,9 @@ while (( $# > 0 )); do
             ;;
         --dry-run)
             dry_run=true
+            ;;
+        --codespaces)
+            codespaces=true
             ;;
         --help|-h)
             usage
@@ -59,6 +65,11 @@ case "$(uname -s)" in
         ;;
 esac
 
+if [[ "$codespaces" == true && "$platform" != "linux" ]]; then
+    printf "Codespaces mode is supported only on Linux.\n" >&2
+    exit 1
+fi
+
 script_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 repository_root="$(cd "$script_directory/.." && pwd -P)"
 
@@ -69,6 +80,12 @@ destinations=("$HOME/.copilot/copilot-instructions.md")
 names+=("Git configuration")
 sources+=("$repository_root/dotfiles/git/gitconfig")
 destinations+=("$HOME/.config/devsetup/gitconfig")
+
+if [[ "$codespaces" != true ]]; then
+    names+=("Git identity")
+    sources+=("$repository_root/dotfiles/git/identity.gitconfig")
+    destinations+=("$HOME/.config/devsetup/identity.gitconfig")
+fi
 
 if [[ "$platform" == "macos" ]]; then
     names+=("Zsh configuration")
@@ -129,8 +146,16 @@ if ! command -v git >/dev/null 2>&1; then
     exit 1
 fi
 
-git_include_path="$HOME/.config/devsetup/gitconfig"
-portable_git_include_path='~/.config/devsetup/gitconfig'
+git_include_names=("Global Git configuration include")
+git_include_paths=("$HOME/.config/devsetup/gitconfig")
+portable_git_include_paths=('~/.config/devsetup/gitconfig')
+
+if [[ "$codespaces" != true ]]; then
+    git_include_names+=("Global Git identity include")
+    git_include_paths+=("$HOME/.config/devsetup/identity.gitconfig")
+    portable_git_include_paths+=('~/.config/devsetup/identity.gitconfig')
+fi
+
 set +e
 git_includes=$(git config --global --get-all include.path 2>&1)
 git_config_status=$?
@@ -141,13 +166,18 @@ if (( git_config_status != 0 && git_config_status != 1 )); then
     exit "$git_config_status"
 fi
 
-if printf "%s\n" "$git_includes" |
-    grep -Fqx -e "$git_include_path" -e "$portable_git_include_path"; then
-    git_include_state="current"
-else
-    git_include_state="missing"
-    has_drift=true
-fi
+git_include_states=()
+for (( index = 0; index < ${#git_include_paths[@]}; index++ )); do
+    if printf "%s\n" "$git_includes" |
+        grep -Fqx \
+            -e "${git_include_paths[$index]}" \
+            -e "${portable_git_include_paths[$index]}"; then
+        git_include_states+=("current")
+    else
+        git_include_states+=("missing")
+        has_drift=true
+    fi
+done
 
 bashrc_path="$HOME/.bashrc"
 bashrc_loader='[ -r "$HOME/.config/devsetup/bashrc" ] && . "$HOME/.config/devsetup/bashrc" # Dustin-DevSetup'
@@ -184,7 +214,11 @@ if [[ "$check" == true ]]; then
         print_state "$bashrc_state" "$bashrc_path"
     fi
 
-    print_state "$git_include_state" "Global Git include: $git_include_path"
+    for (( index = 0; index < ${#git_include_states[@]}; index++ )); do
+        print_state \
+            "${git_include_states[$index]}" \
+            "${git_include_names[$index]}: ${git_include_paths[$index]}"
+    done
 
     if [[ "$has_drift" == true ]]; then
         exit 1
@@ -266,16 +300,20 @@ for (( index = 0; index < ${#sources[@]}; index++ )); do
     fi
 done
 
-if [[ "$git_include_state" == "current" ]]; then
-    printf "Current: Global Git include\n"
-elif [[ "$dry_run" == true ]]; then
-    printf "Would install: Global Git include (%s)\n" "$git_include_path"
-elif ! git config --global --add include.path "$git_include_path"; then
-    printf "Unable to add the managed Git configuration include.\n" >&2
-    exit 1
-else
-    printf "Installed: Global Git include\n"
-fi
+for (( index = 0; index < ${#git_include_states[@]}; index++ )); do
+    if [[ "${git_include_states[$index]}" == "current" ]]; then
+        printf "Current: %s\n" "${git_include_names[$index]}"
+    elif [[ "$dry_run" == true ]]; then
+        printf "Would install: %s (%s)\n" \
+            "${git_include_names[$index]}" \
+            "${git_include_paths[$index]}"
+    elif ! git config --global --add include.path "${git_include_paths[$index]}"; then
+        printf "Unable to add %s.\n" "${git_include_names[$index]}" >&2
+        exit 1
+    else
+        printf "Installed: %s\n" "${git_include_names[$index]}"
+    fi
+done
 
 if [[ "$platform" == "linux" && "$bashrc_state" != "current" ]]; then
     if [[ "$dry_run" == true ]]; then

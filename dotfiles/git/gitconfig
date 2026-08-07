@@ -1,8 +1,3 @@
-[user]
-    name = Dustin Campbell
-    email = dustin@teamcampbell.org
-    useConfigOnly = true
-
 [alias]
     last = log -1 HEAD --stat
     list = log --oneline

@@ -74,7 +74,8 @@ In [Codespaces settings](https://github.com/settings/codespaces), enable automat
 installation and select this repository. Codespaces runs the root `install.sh`, which installs only
 missing user-local Starship and the managed dotfiles. Git, GitHub CLI, and authentication are
 already supplied by Codespaces; desktop fonts are rendered by the client and are not installed in
-the container.
+the container. The installer preserves the Codespaces-provided Git identity and signing
+configuration while adding the managed aliases.
 
 Changes apply automatically only to newly created codespaces. In an existing codespace, clone this
 repository and run:
@@ -120,6 +121,7 @@ The default mode creates symbolic links for:
 
 - `~\.copilot\copilot-instructions.md`
 - `~\.config\devsetup\gitconfig`
+- `~\.config\devsetup\identity.gitconfig`
 - `~\.config\devsetup\profile.ps1`
 - `~\.config\starship.toml`
 
@@ -146,6 +148,7 @@ The default mode creates symbolic links for:
 
 - `~/.copilot/copilot-instructions.md`
 - `~/.config/devsetup/gitconfig`
+- `~/.config/devsetup/identity.gitconfig`
 - `~/.config/starship.toml`
 - `~/.zshrc`
 
@@ -167,6 +170,7 @@ The default mode creates symbolic links for:
 - `~/.copilot/copilot-instructions.md`
 - `~/.config/devsetup/bashrc`
 - `~/.config/devsetup/gitconfig`
+- `~/.config/devsetup/identity.gitconfig`
 - `~/.config/starship.toml`
 
 The installer preserves an existing `~/.bashrc` and appends one idempotent loader for the managed
@@ -199,6 +203,6 @@ Use the built-in Terminal with Zsh. No third-party terminal application is provi
 
 ## Git Configuration
 
-Personal identity and aliases are stored in `dotfiles/git/gitconfig`. Each installer links that file
-to `~/.config/devsetup/gitconfig` and adds it to the global Git configuration through an
-`[include]`.
+Aliases are stored in `dotfiles/git/gitconfig`, while personal identity is stored separately in
+`dotfiles/git/identity.gitconfig`. Local-machine installers include both files. Codespaces includes
+only the aliases so its system-managed identity and signing configuration remain authoritative.

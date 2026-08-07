@@ -71,6 +71,7 @@ bash "$script_directory/install-tools.sh" "${tool_arguments[@]}"
 dotfile_arguments=()
 [[ "$replace" == true ]] && dotfile_arguments+=("--replace")
 [[ "$copy" == true ]] && dotfile_arguments+=("--copy")
+[[ "$codespaces" == true ]] && dotfile_arguments+=("--codespaces")
 [[ "$dry_run" == true ]] && dotfile_arguments+=("--dry-run")
 
 bash "$script_directory/install-dotfiles.sh" "${dotfile_arguments[@]}"
