@@ -22,6 +22,10 @@
 * Follow the 50/72 convention: keep the subject line at 50 characters or fewer when practical and never exceed 72 characters. Separate the subject from the body with a blank line, and wrap body text at 72 characters.
 * Do not add `Co-authored-by`, `Copilot-Session`, or other productivity-tool attribution or session-tracking trailers to commits. I am the author of commits created at my direction.
 
+## C# API Surface
+
+* On an `internal` type, use `public` for members that form the type's intended consumable surface, `internal` only when assembly accessibility outside that surface is intentional, and `private` for implementation details. Do not change existing member accessibility solely to apply this preference.
+
 ## XML Documentation
 
 * **Multiline elements:** Always write `<summary>`, `<remarks>`, and `<returns>` as multiline elements, even when their content is one sentence. Put the opening and closing tags on separate lines.
