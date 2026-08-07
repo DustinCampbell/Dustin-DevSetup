@@ -8,13 +8,18 @@
 * Treat questions, observations, design discussions, expressed preferences, and agreement with a proposed direction as discussion only, not authorization to implement the direction.
 * When I ask you to inspect or review changes, perform a direct, focused review. Do not delegate the review or repeat work already completed.
 * If it is unclear whether I want analysis or implementation, ask before taking action.
-* Do not add `Co-authored-by`, `Copilot-Session`, or other productivity-tool attribution or session-tracking trailers to commits. I am the author of commits created at my direction.
 
 ## Working Style
 
 * Optimize for my time. Prefer quick, direct inspection over broad searches, long-running commands, or redundant verification.
 * Do not run benchmarks locally merely to confirm that they execute; I use a dedicated VM for benchmark runs.
 * When I say Visual Studio is open, avoid commands that compile the repository or interfere with its files unless explicitly requested.
+* Wrap Markdown prose at 100 columns by default. When editing an existing Markdown file, infer and follow that file's established wrapping convention instead.
+
+## Git Commit Messages
+
+* Follow the 50/72 convention: keep the subject line at 50 characters or fewer when practical and never exceed 72 characters. Separate the subject from the body with a blank line, and wrap body text at 72 characters.
+* Do not add `Co-authored-by`, `Copilot-Session`, or other productivity-tool attribution or session-tracking trailers to commits. I am the author of commits created at my direction.
 
 ## XML Documentation
 
