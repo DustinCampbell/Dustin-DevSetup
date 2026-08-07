@@ -110,5 +110,10 @@ Set-Alias stop-buildprocs Stop-BuildProcesses
 Set-LocationProjects
 
 # Initialize Starship Prompt
-$ENV:STARSHIP_CONFIG = "$HOME\.starship\starship.toml"
+$ENV:STARSHIP_CONFIG = Join-Path $HOME ".config\starship.toml"
 Invoke-Expression (&starship init powershell)
+
+$localProfile = Join-Path $HOME ".config\powershell\profile.local.ps1"
+if (Test-Path -LiteralPath $localProfile) {
+    . $localProfile
+}

@@ -10,6 +10,59 @@
 
 - I particularly like [Dracula](https://draculatheme.com/), which offers theemes for tons of different applications.
 
+## Dotfiles
+
+The files under `dotfiles` are the canonical copies of personal configuration. The installation scripts create links from the locations used by each tool back to this repository, so edits made through either path are tracked by Git immediately. The PowerShell profile uses a small regular loader because its standard location may be managed by OneDrive.
+
+The scripts never replace an existing file by default. Use the check or dry-run options first, then opt into replacement. Replaced files are backed up beside their original locations with a timestamp.
+
+### Windows
+
+Run the installer from PowerShell 7:
+
+```PowerShell
+pwsh -NoProfile -File .\scripts\Install-Dotfiles.ps1 -Check
+pwsh -NoProfile -File .\scripts\Install-Dotfiles.ps1 -Replace -WhatIf
+pwsh -NoProfile -File .\scripts\Install-Dotfiles.ps1 -Replace
+```
+
+The default mode creates symbolic links for:
+
+- `~\.copilot\copilot-instructions.md`
+- `~\.config\devsetup\profile.ps1`
+- `~\.config\starship.toml`
+
+The installer places a regular loader at `$PROFILE.CurrentUserAllHosts` that loads `~\.config\devsetup\profile.ps1`. This avoids placing an unsupported symbolic link in a OneDrive-managed Documents folder while keeping the full profile canonical in this repository.
+
+Creating symbolic links without elevation requires Windows Developer Mode. If symbolic links are unavailable, use `-Mode Copy`; rerun the installer with `-Check` to detect drift and `-Replace` to synchronize changed copies. The PowerShell loader is always copied because it must remain a regular file.
+
+### macOS
+
+Run the installer with Zsh:
+
+```zsh
+zsh scripts/install-dotfiles.zsh --check
+zsh scripts/install-dotfiles.zsh --replace --dry-run
+zsh scripts/install-dotfiles.zsh --replace
+```
+
+The default mode creates symbolic links for:
+
+- `~/.copilot/copilot-instructions.md`
+- `~/.config/starship.toml`
+- `~/.zshrc`
+
+Use `--copy` when symbolic links are unavailable. As on Windows, `--check` detects drift and `--replace` backs up conflicting files before synchronizing them.
+
+### Local configuration
+
+Keep machine-specific or sensitive configuration outside the repository:
+
+- The PowerShell profile loads `~\.config\powershell\profile.local.ps1` when present.
+- The Zsh configuration loads `~/.zshrc.local` when present.
+
+Do not store credentials, tokens, Copilot session state, or other secrets under `dotfiles`. After changing `copilot-instructions.md`, resume or start a Copilot session to reload it; `/instructions` shows the files loaded by the current session.
+
 ## Terminal
 
 ### Windows
@@ -25,9 +78,6 @@ I use Windows Terminal as my terminal interface. A better theme can be acquired 
   ```PowerShell
   winget install --id Starship.Starship
   ```
-
-  - Copy `files\starship.toml` to `$HOME\.starship\`
-  - Copy contents of `files\profile.ps1` into the PowerShell profile at `$PROFILE`
 
 - Install [GitHub CLI](https://github.com/cli/cli).
   ```PowerShell
@@ -69,9 +119,6 @@ I use [Warp](https://www.warp.dev/) as my terminal interface.
   ```zsh
   brew install starship
   ```
-
-  - Copy `files\starship.toml` to `~/.config/`.
-  - Copy `files\.zshrc` to `~`.
 
 - Install [GitHub CLI](https://github.com/cli/cli).
   ```zsh
