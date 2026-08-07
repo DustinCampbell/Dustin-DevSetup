@@ -12,6 +12,10 @@ $all
 [line_break]
 disabled = true
 
+[container]
+symbol = ''
+format = '[$symbol]($style) '
+
 # Change the default prompt characters
 [character]
 success_symbol = "[](238)"
