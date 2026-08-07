@@ -1,0 +1,4 @@
+*.sh text eol=lf
+*.zsh text eol=lf
+dotfiles/bash/bashrc text eol=lf
+dotfiles/zsh/.zshrc text eol=lf
