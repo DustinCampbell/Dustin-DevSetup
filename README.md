@@ -29,6 +29,7 @@ pwsh -NoProfile -File .\scripts\Install-Dotfiles.ps1 -Replace
 The default mode creates symbolic links for:
 
 - `~\.copilot\copilot-instructions.md`
+- `~\.config\devsetup\gitconfig`
 - `~\.config\devsetup\profile.ps1`
 - `~\.config\starship.toml`
 
@@ -49,6 +50,7 @@ bash scripts/install-dotfiles.sh --replace
 The default mode creates symbolic links for:
 
 - `~/.copilot/copilot-instructions.md`
+- `~/.config/devsetup/gitconfig`
 - `~/.config/starship.toml`
 - `~/.zshrc`
 
@@ -68,6 +70,7 @@ The default mode creates symbolic links for:
 
 - `~/.copilot/copilot-instructions.md`
 - `~/.config/devsetup/bashrc`
+- `~/.config/devsetup/gitconfig`
 - `~/.config/starship.toml`
 
 The installer preserves an existing `~/.bashrc` and appends one idempotent loader for the managed Bash configuration. It initializes Starship only when the executable is installed, so the shell remains usable without it.
@@ -170,7 +173,5 @@ I use [Warp](https://www.warp.dev/) as my terminal interface.
   ```
 
 ## Git Aliases
-```zsh
-git config --global alias.last 'log -1 HEAD --stat'
-git config --global alias.list 'log --oneline'
-```
+
+Git aliases are stored in `dotfiles/git/gitconfig`. Each installer links that file to `~/.config/devsetup/gitconfig` and adds it to the global Git configuration through an `[include]`.

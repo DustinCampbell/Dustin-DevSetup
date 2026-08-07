@@ -66,6 +66,10 @@ names=("Copilot instructions")
 sources=("$repository_root/dotfiles/copilot/copilot-instructions.md")
 destinations=("$HOME/.copilot/copilot-instructions.md")
 
+names+=("Git configuration")
+sources+=("$repository_root/dotfiles/git/gitconfig")
+destinations+=("$HOME/.config/devsetup/gitconfig")
+
 if [[ "$platform" == "macos" ]]; then
     names+=("Zsh configuration")
     sources+=("$repository_root/dotfiles/zsh/.zshrc")
@@ -120,6 +124,31 @@ for (( index = 0; index < ${#sources[@]}; index++ )); do
     fi
 done
 
+if ! command -v git >/dev/null 2>&1; then
+    printf "Git is required to install the managed configuration.\n" >&2
+    exit 1
+fi
+
+git_include_path="$HOME/.config/devsetup/gitconfig"
+portable_git_include_path='~/.config/devsetup/gitconfig'
+set +e
+git_includes=$(git config --global --get-all include.path 2>&1)
+git_config_status=$?
+set -e
+
+if (( git_config_status != 0 && git_config_status != 1 )); then
+    printf "Unable to read the global Git configuration:\n%s\n" "$git_includes" >&2
+    exit "$git_config_status"
+fi
+
+if printf "%s\n" "$git_includes" |
+    grep -Fqx -e "$git_include_path" -e "$portable_git_include_path"; then
+    git_include_state="current"
+else
+    git_include_state="missing"
+    has_drift=true
+fi
+
 bashrc_path="$HOME/.bashrc"
 bashrc_loader='[ -r "$HOME/.config/devsetup/bashrc" ] && . "$HOME/.config/devsetup/bashrc" # Dustin-DevSetup'
 bashrc_state=""
@@ -154,6 +183,8 @@ if [[ "$check" == true ]]; then
     if [[ "$platform" == "linux" ]]; then
         print_state "$bashrc_state" "$bashrc_path"
     fi
+
+    print_state "$git_include_state" "Global Git include: $git_include_path"
 
     if [[ "$has_drift" == true ]]; then
         exit 1
@@ -234,6 +265,17 @@ for (( index = 0; index < ${#sources[@]}; index++ )); do
         printf "Backup: %s\n" "$backup"
     fi
 done
+
+if [[ "$git_include_state" == "current" ]]; then
+    printf "Current: Global Git include\n"
+elif [[ "$dry_run" == true ]]; then
+    printf "Would install: Global Git include (%s)\n" "$git_include_path"
+elif ! git config --global --add include.path "$git_include_path"; then
+    printf "Unable to add the managed Git configuration include.\n" >&2
+    exit 1
+else
+    printf "Installed: Global Git include\n"
+fi
 
 if [[ "$platform" == "linux" && "$bashrc_state" != "current" ]]; then
     if [[ "$dry_run" == true ]]; then
