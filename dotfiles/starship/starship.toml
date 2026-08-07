@@ -6,7 +6,11 @@ command_timeout = 1000
 # Change the default prompt format
 format = """\
 [╭╴](238)$os\
-$all[╰─](238)$character"""
+$all
+[╰─](238)$character"""
+
+[line_break]
+disabled = true
 
 # Change the default prompt characters
 [character]
@@ -70,4 +74,4 @@ deleted = '🗑️'
 
 # Shows relevant .NET Core SDK
 [dotnet]
-format = '[$symbol($version)]($style)'
+format = '[$symbol($version)]($style) '
