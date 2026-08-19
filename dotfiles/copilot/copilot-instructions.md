@@ -38,6 +38,7 @@
 
 * **Multiline elements:** Always write `<summary>`, `<remarks>`, and `<returns>` as multiline elements, even when their content is one sentence. Put the opening and closing tags on separate lines.
 * **Indentation:** Start top-level XML tag lines with `/// `. Start prose or nested tags inside a top-level element with `///  `. Add one additional space after `///` for each further nesting level.
+* **Top-level order:** Declare applicable top-level elements in this order: `<summary>`, `<typeparam>`, `<param>`, `<returns>` or `<value>`, `<exception>`, then `<remarks>`. Keep repeated `<typeparam>` and `<param>` elements in declaration order.
 * **Semantic references:** Use `<paramref name="..."/>` for parameters, `<typeparamref name="..."/>` for type parameters, and `<see cref="..."/>` for types and members.
 * **Language keywords:** Use `<see langword="..."/>` for language keywords, including `<see langword="null"/>`, `<see langword="true"/>`, and `<see langword="false"/>`.
 * **Inline code:** Use `<c>...</c>` for code, literals, and syntax that do not have a semantic reference tag.
@@ -45,16 +46,18 @@
 
   ```csharp
   /// <summary>
-  ///  Describes the member and its <paramref name="value"/>.
+  ///  Describes the member, its <typeparamref name="T"/>, and its <paramref name="value"/>.
   /// </summary>
+  /// <typeparam name="T">The type of value to inspect.</typeparam>
+  /// <param name="value">The value to inspect.</param>
+  /// <returns>
+  ///  <see langword="true"/> when the value matches; otherwise, <see langword="false"/>.
+  /// </returns>
+  /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/>.</exception>
   /// <remarks>
   ///  Introductory text.
   ///  <para>
   ///   Nested text uses one additional space.
   ///  </para>
   /// </remarks>
-  /// <param name="value">The value to inspect.</param>
-  /// <returns>
-  ///  <see langword="true"/> when the value matches; otherwise, <see langword="false"/>.
-  /// </returns>
   ```
