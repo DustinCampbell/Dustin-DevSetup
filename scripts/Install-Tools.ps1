@@ -1,3 +1,50 @@
+<#
+.SYNOPSIS
+Installs the managed Windows development tools and Nerd Fonts.
+
+.DESCRIPTION
+Checks for a fixed set of Windows development tools with Windows Package Manager and installs only
+the packages that are missing. Existing packages are left unchanged rather than upgraded.
+
+Unless SkipFonts is specified, the script also checks the current user's Windows Fonts directory
+for the managed FiraCode and FiraMono Nerd Font families. Missing families are downloaded from the
+latest Nerd Fonts GitHub release and registered for the current user.
+
+The complete installation plan is displayed before any changes are made. By default, the script
+prompts for confirmation. Use Yes for unattended installation or WhatIf to print the plan without
+installing anything.
+
+.PARAMETER Yes
+Skips the interactive confirmation prompt. Package and font installation failures are still
+reported as terminating errors.
+
+.PARAMETER SkipFonts
+Excludes Nerd Fonts from discovery and installation. Managed Windows packages are still checked and
+installed when missing.
+
+.EXAMPLE
+pwsh -NoProfile -File .\scripts\Install-Tools.ps1
+
+Displays missing tools and fonts, then prompts before installing them.
+
+.EXAMPLE
+pwsh -NoProfile -File .\scripts\Install-Tools.ps1 -WhatIf
+
+Displays the tools and fonts that would be installed without making changes.
+
+.EXAMPLE
+pwsh -NoProfile -File .\scripts\Install-Tools.ps1 -Yes -SkipFonts
+
+Installs missing Windows packages without prompting and does not inspect or install Nerd Fonts.
+
+.OUTPUTS
+None. The script writes installation plans and progress to the host.
+
+.NOTES
+This script requires Windows Package Manager (`winget.exe`) and network access to the configured
+winget source. Font installation also requires access to GitHub releases. Fonts are installed only
+for the current user and may require applications to be restarted before they appear.
+#>
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [switch]$Yes,
@@ -8,6 +55,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# Keep package metadata declarative so discovery, planning, and installation use the same IDs.
 $packages = @(
     [pscustomobject]@{ Name = "Git for Windows"; Id = "Git.Git" },
     [pscustomobject]@{ Name = "GitHub CLI"; Id = "GitHub.cli" },
@@ -16,6 +64,7 @@ $packages = @(
     [pscustomobject]@{ Name = "Windows Terminal"; Id = "Microsoft.WindowsTerminal" }
 )
 
+# Asset names address release archives; patterns detect extracted files in the user font directory.
 $fontFamilies = @(
     [pscustomobject]@{ Name = "FiraCode Nerd Font"; Asset = "FiraCode"; Pattern = "FiraCodeNerdFont*" },
     [pscustomobject]@{ Name = "FiraMono Nerd Font"; Asset = "FiraMono"; Pattern = "FiraMonoNerdFont*" }
@@ -26,6 +75,7 @@ if ($null -eq $winget) {
     throw "Windows Package Manager is required. Install App Installer from Microsoft before running setup."
 }
 
+# winget list returns zero only when an exact installed-package match is found.
 function Test-WingetPackage {
     param(
         [Parameter(Mandatory)]
@@ -43,6 +93,7 @@ function Test-WingetPackage {
 
 $userFontsDirectory = Join-Path $env:LOCALAPPDATA "Microsoft\Windows\Fonts"
 
+# Fonts are detected by filename because per-user font registry display names are not standardized.
 function Test-FontFamily {
     param(
         [Parameter(Mandatory)]
@@ -59,6 +110,7 @@ function Test-FontFamily {
     )
 }
 
+# Materialize both lists before displaying the plan or requesting confirmation.
 $missingPackages = @($packages | Where-Object { -not (Test-WingetPackage $_.Id) })
 $missingFonts = @(
     if (-not $SkipFonts) {
@@ -79,6 +131,7 @@ foreach ($font in $missingFonts) {
     Write-Host "  - $($font.Name) (per-user)"
 }
 
+# SupportsShouldProcess supplies WhatIfPreference even though installation is performed in batches.
 if ($WhatIfPreference) {
     return
 }
@@ -90,6 +143,7 @@ if (-not $Yes) {
     }
 }
 
+# Install packages first so a winget failure stops before any font files are changed.
 foreach ($package in $missingPackages) {
     Write-Host "Installing $($package.Name)..."
     & $winget.Source install `
@@ -109,6 +163,7 @@ if ($missingFonts.Count -eq 0) {
     return
 }
 
+# Per-user fonts require both the font file and a matching HKCU registration.
 New-Item -ItemType Directory -Path $userFontsDirectory -Force | Out-Null
 $fontRegistryPath = "HKCU:\Software\Microsoft\Windows NT\CurrentVersion\Fonts"
 New-Item -Path $fontRegistryPath -Force | Out-Null
@@ -116,6 +171,8 @@ New-Item -Path $fontRegistryPath -Force | Out-Null
 $temporaryDirectory = Join-Path ([System.IO.Path]::GetTempPath()) "Dustin-DevSetup-$([guid]::NewGuid())"
 New-Item -ItemType Directory -Path $temporaryDirectory | Out-Null
 
+# Use a unique staging directory and remove it even when download, extraction, or
+# registration fails.
 try {
     foreach ($fontFamily in $missingFonts) {
         Write-Host "Installing $($fontFamily.Name)..."
