@@ -87,6 +87,12 @@ $mappings = @(
         Mode = $Mode
     },
     [pscustomobject]@{
+        Name = "Visual Studio developer shell command"
+        Source = Join-Path $repositoryRoot "dotfiles\powershell\Initialize-VS.ps1"
+        Destination = Join-Path $HOME ".config\devsetup\Initialize-VS.ps1"
+        Mode = $Mode
+    },
+    [pscustomobject]@{
         Name = "Build process cleanup command"
         Source = Join-Path $repositoryRoot "dotfiles\powershell\Stop-BuildProcesses.ps1"
         Destination = Join-Path $HOME ".config\devsetup\Stop-BuildProcesses.ps1"

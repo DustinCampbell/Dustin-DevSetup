@@ -120,6 +120,7 @@ pwsh -NoProfile -File .\scripts\Install-Dotfiles.ps1 -Replace
 The default mode creates symbolic links for:
 
 - `~\.copilot\copilot-instructions.md`
+- `~\.config\devsetup\Initialize-VS.ps1`
 - `~\.config\devsetup\Stop-BuildProcesses.ps1`
 - `~\.config\devsetup\gitconfig`
 - `~\.config\devsetup\identity.gitconfig`
@@ -193,6 +194,20 @@ shows the files loaded by the current session.
 ## PowerShell functions
 
 The managed PowerShell profile provides development-specific helper functions.
+
+### `Initialize-VS`
+
+The installed `Initialize-VS.ps1` command uses Visual Studio Installer's `vswhere.exe` to initialize
+the current PowerShell session as an x64 developer shell. It selects the newest Visual Studio
+instance by default, including prerelease channels. Pass `-ChooseVS` to select interactively from
+all installed instances. Initialization preserves the current directory and creates a global `VS`
+alias for `devenv.exe`.
+
+```PowerShell
+Initialize-VS
+Initialize-VS -ChooseVS
+init-vs -ChooseVS
+```
 
 ### `Stop-BuildProcesses`
 
