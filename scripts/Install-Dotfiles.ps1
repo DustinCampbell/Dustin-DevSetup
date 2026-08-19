@@ -1,3 +1,56 @@
+<#
+.SYNOPSIS
+Installs or checks the managed Windows dotfiles.
+
+.DESCRIPTION
+Maps the canonical files under `dotfiles` to their user-specific destinations. Link mode creates
+symbolic links back to the repository so changes remain immediately visible to Git. Copy mode
+creates independent copies for environments where symbolic links are unavailable.
+
+Each destination is classified as Current, Missing, or Conflict before any files are changed.
+Conflicts stop installation unless Replace is specified. Replaced items are moved to timestamped
+backup paths and restored if installing their replacements fails.
+
+The PowerShell profile loader is always copied because its OneDrive-managed destination must remain
+a regular file. The installer also ensures that the managed Git configuration and identity files
+are included by the global Git configuration. Use Check for a read-only drift report or WhatIf to
+preview installation actions.
+
+.PARAMETER Mode
+Controls how managed files are installed. Link creates symbolic links to the canonical repository
+files and is the default. Copy creates regular files containing the current canonical content.
+
+.PARAMETER Replace
+Allows conflicting destinations to be moved to timestamped backup paths before their replacements
+are installed. Existing files are never replaced without this switch.
+
+.PARAMETER Check
+Reports the state of every file mapping and required global Git include without making changes.
+The script exits with code 1 when any item is missing or conflicting.
+
+.EXAMPLE
+pwsh -NoProfile -File .\scripts\Install-Dotfiles.ps1 -Check
+
+Checks all managed files and Git includes for drift.
+
+.EXAMPLE
+pwsh -NoProfile -File .\scripts\Install-Dotfiles.ps1 -Replace -WhatIf
+
+Previews link installation, including any conflicting destinations that would be backed up.
+
+.EXAMPLE
+pwsh -NoProfile -File .\scripts\Install-Dotfiles.ps1 -Mode Copy -Replace
+
+Installs regular copies and backs up conflicting destinations.
+
+.OUTPUTS
+None. The script writes status information to the host and uses its exit code to report check
+results or failures.
+
+.NOTES
+Run this script with PowerShell 7 on Windows. Link mode requires permission to create symbolic
+links, such as Windows Developer Mode or an elevated shell.
+#>
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [ValidateSet("Link", "Copy")]
@@ -12,6 +65,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
+
+# Most destinations honor Mode; the profile loader is copied to keep its host-managed path regular.
 $mappings = @(
     [pscustomobject]@{
         Name = "Copilot instructions"
@@ -29,6 +84,12 @@ $mappings = @(
         Name = "Git identity"
         Source = Join-Path $repositoryRoot "dotfiles\git\identity.gitconfig"
         Destination = Join-Path $HOME ".config\devsetup\identity.gitconfig"
+        Mode = $Mode
+    },
+    [pscustomobject]@{
+        Name = "Build process cleanup command"
+        Source = Join-Path $repositoryRoot "dotfiles\powershell\Stop-BuildProcesses.ps1"
+        Destination = Join-Path $HOME ".config\devsetup\Stop-BuildProcesses.ps1"
         Mode = $Mode
     },
     [pscustomobject]@{
@@ -69,6 +130,7 @@ function Get-NormalizedPath {
     [System.IO.Path]::GetFullPath($Path)
 }
 
+# Relative link targets are interpreted from the link's directory before paths are compared.
 function Get-SymbolicLinkTarget {
     param(
         [Parameter(Mandatory)]
@@ -87,6 +149,7 @@ function Get-SymbolicLinkTarget {
     Get-NormalizedPath $target
 }
 
+# A mapping is current only when its link target or copied content exactly matches the source.
 function Get-MappingState {
     param(
         [Parameter(Mandatory)]
@@ -119,6 +182,7 @@ function Get-MappingState {
     "Conflict"
 }
 
+# Validate every canonical source before examining or changing destinations.
 $missingSources = @(
     $mappings |
         Where-Object { -not (Test-Path -LiteralPath $_.Source -PathType Leaf) } |
@@ -129,6 +193,7 @@ if ($missingSources.Count -gt 0) {
     throw "The following dotfile sources are missing:`n$($missingSources -join "`n")"
 }
 
+# Capture all mapping states up front so conflicts are discovered before the first mutation.
 $states = @(
     foreach ($mapping in $mappings) {
         [pscustomobject]@{
@@ -138,6 +203,7 @@ $states = @(
     }
 )
 
+# Git include entries are configuration state rather than file mappings and are checked separately.
 $gitIncludeMappings = @(
     [pscustomobject]@{
         Name = "Global Git configuration include"
@@ -173,6 +239,7 @@ function Test-GitInclude {
             continue
         }
 
+        # Git may persist home-relative include paths even when the requested path is absolute.
         if ($gitInclude.StartsWith("~/") -or $gitInclude.StartsWith("~\")) {
             $gitInclude = Join-Path $HOME $gitInclude.Substring(2)
         }
@@ -190,6 +257,7 @@ function Test-GitInclude {
     $false
 }
 
+# Capture Git include state once so checking and installation report the same initial view.
 $gitIncludeStates = @(
     foreach ($gitIncludeMapping in $gitIncludeMappings) {
         [pscustomobject]@{
@@ -199,6 +267,7 @@ $gitIncludeStates = @(
     }
 )
 
+# Check mode is read-only and uses its exit code to make drift detectable by automation.
 if ($Check) {
     $hasDrift = $false
     foreach ($state in $states) {
@@ -227,6 +296,7 @@ if ($Check) {
     return
 }
 
+# Refuse every conflicting mapping before applying any partial installation.
 $conflicts = @($states | Where-Object { $_.State -eq "Conflict" })
 if ($conflicts.Count -gt 0 -and -not $Replace) {
     $conflictingPaths = @(
@@ -236,6 +306,7 @@ if ($conflicts.Count -gt 0 -and -not $Replace) {
     throw "Existing files differ from the requested installation. Re-run with -Replace to back them up first:`n$conflictingPaths"
 }
 
+# One timestamp groups all backup files produced by this installation attempt.
 $timestamp = Get-Date -Format "yyyyMMddHHmmssfff"
 
 foreach ($state in $states) {
@@ -293,6 +364,7 @@ foreach ($state in $states) {
     }
 }
 
+# Add Git includes only after their target files have been installed successfully.
 foreach ($gitIncludeState in $gitIncludeStates) {
     $gitIncludeMapping = $gitIncludeState.Mapping
     if ($gitIncludeState.State -eq "Current") {

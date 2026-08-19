@@ -17,6 +17,14 @@
 * Wrap Markdown prose at 100 columns by default. When editing an existing Markdown file, infer and follow that file's established wrapping convention instead.
 * Do not manually wrap Markdown prose in GitHub pull request descriptions. Keep each paragraph and list item on a single source line so GitHub does not preserve unwanted line breaks.
 
+## Available Tools
+
+* When an explicitly requested build fails because stale build processes are locking files, run
+  `& "$HOME\.config\devsetup\Stop-BuildProcesses.ps1" -RepositoryRoot "<repository-root>" -WhatIf`
+  to inspect candidates. Prefer `-Id` when the failure identifies a process. Retry without `-WhatIf`
+  only when every candidate belongs to that build. Do not use `-All` or `-IncludeVisualStudio` unless
+  I explicitly authorize it.
+
 ## Git Commit Messages
 
 * Follow the 50/72 convention: keep the subject line at 50 characters or fewer when practical and never exceed 72 characters. Separate the subject from the body with a blank line, and wrap body text at 72 characters.

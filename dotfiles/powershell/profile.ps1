@@ -92,12 +92,7 @@ function Stop-VBCSCompilerProcesses {
     Stop-ProcessesWithName "VBCSCompiler"
 }
 
-function Stop-BuildProcesses {
-    Stop-MSBuildProcesses
-    Stop-DotnetProcesses
-    Stop-VBCSCompilerProcesses
-}
-
+$stopBuildProcessesScript = Join-Path $PSScriptRoot "Stop-BuildProcesses.ps1"
 Set-Alias init-vs Initialize-VS
 Set-Alias projects Set-LocationProjects
 Set-Alias open Explorer
@@ -105,7 +100,9 @@ Set-Alias stop-processes Stop-ProcessesWithName
 Set-Alias stop-msbuild Stop-MSBuildProcesses
 Set-Alias stop-dotnet Stop-DotnetProcesses
 Set-Alias stop-vbcscompiler Stop-VBCSCompilerProcesses
-Set-Alias stop-buildprocs Stop-BuildProcesses
+Set-Alias Stop-BuildProcesses $stopBuildProcessesScript
+Set-Alias stop-buildprocs $stopBuildProcessesScript
+Remove-Variable stopBuildProcessesScript
 
 Set-LocationProjects
 

@@ -120,6 +120,7 @@ pwsh -NoProfile -File .\scripts\Install-Dotfiles.ps1 -Replace
 The default mode creates symbolic links for:
 
 - `~\.copilot\copilot-instructions.md`
+- `~\.config\devsetup\Stop-BuildProcesses.ps1`
 - `~\.config\devsetup\gitconfig`
 - `~\.config\devsetup\identity.gitconfig`
 - `~\.config\devsetup\profile.ps1`
@@ -188,6 +189,30 @@ Keep machine-specific or sensitive configuration outside the repository:
 Do not store credentials, tokens, Copilot session state, or other secrets under `dotfiles`. After
 changing `copilot-instructions.md`, resume or start a Copilot session to reload it; `/instructions`
 shows the files loaded by the current session.
+
+## PowerShell functions
+
+The managed PowerShell profile provides development-specific helper functions.
+
+### `Stop-BuildProcesses`
+
+The installed `Stop-BuildProcesses.ps1` command finds the Git repository containing the current
+directory and stops only `msbuild`, build-related `dotnet`, and `VBCSCompiler` processes whose
+executable path, command line, or process ancestry references that repository. Processes with a
+current Visual Studio ancestor are excluded in repository and process-ID modes unless
+`-IncludeVisualStudio` is specified. Use `-Id` when a build failure identifies the locking process,
+or `-All` to opt into the previous machine-wide behavior, including Visual Studio builds. `-Name`
+narrows the process kinds, `-StartedAfter` excludes older processes, and `-PassThru` returns details
+about each stopped process.
+
+Preview candidates before stopping them:
+
+```PowerShell
+& "$HOME\.config\devsetup\Stop-BuildProcesses.ps1" -WhatIf
+& "$HOME\.config\devsetup\Stop-BuildProcesses.ps1" -RepositoryRoot . -Name msbuild,VBCSCompiler
+& "$HOME\.config\devsetup\Stop-BuildProcesses.ps1" -Id 1234 -WhatIf
+& "$HOME\.config\devsetup\Stop-BuildProcesses.ps1" -All -Confirm
+```
 
 ## Terminal
 
