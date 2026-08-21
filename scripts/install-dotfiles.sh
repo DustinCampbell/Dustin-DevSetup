@@ -148,12 +148,13 @@ fi
 
 git_include_names=("Global Git configuration include")
 git_include_paths=("$HOME/.config/devsetup/gitconfig")
-portable_git_include_paths=('~/.config/devsetup/gitconfig')
+portable_home="~"
+portable_git_include_paths=("$portable_home/.config/devsetup/gitconfig")
 
 if [[ "$codespaces" != true ]]; then
     git_include_names+=("Global Git identity include")
     git_include_paths+=("$HOME/.config/devsetup/identity.gitconfig")
-    portable_git_include_paths+=('~/.config/devsetup/identity.gitconfig')
+    portable_git_include_paths+=("$portable_home/.config/devsetup/identity.gitconfig")
 fi
 
 set +e
@@ -180,7 +181,7 @@ for (( index = 0; index < ${#git_include_paths[@]}; index++ )); do
 done
 
 bashrc_path="$HOME/.bashrc"
-bashrc_loader='[ -r "$HOME/.config/devsetup/bashrc" ] && . "$HOME/.config/devsetup/bashrc" # Dustin-DevSetup'
+bashrc_loader="[ -r \"\$HOME/.config/devsetup/bashrc\" ] && . \"\$HOME/.config/devsetup/bashrc\" # Dustin-DevSetup"
 bashrc_state=""
 
 if [[ "$platform" == "linux" ]]; then
