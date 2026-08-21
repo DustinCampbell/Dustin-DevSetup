@@ -68,6 +68,7 @@ fi
 
 script_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 repository_root="$(cd "$script_directory/.." && pwd -P)"
+brewfile_path="$repository_root/Brewfile"
 
 confirm_plan() {
     if [[ "$dry_run" == true ]]; then
@@ -90,6 +91,44 @@ confirm_plan() {
     esac
 }
 
+macos_font_files_exist() {
+    local cask=$1
+
+    case "$cask" in
+        font-fira-code-nerd-font)
+            compgen -G "$HOME/Library/Fonts/FiraCodeNerdFont-*.ttf" >/dev/null
+            ;;
+        font-fira-mono-nerd-font)
+            compgen -G "$HOME/Library/Fonts/FiraMonoNerdFont-*.ttf" >/dev/null
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+collect_missing_macos_brewfile_entries() {
+    missing_formulae=()
+    missing_casks=()
+
+    local formula
+    while IFS= read -r formula; do
+        if ! "$brew_path" list --formula "$formula" >/dev/null 2>&1; then
+            missing_formulae+=("$formula")
+        fi
+    done < <("$brew_path" bundle list --formula --file="$brewfile_path")
+
+    if [[ "$skip_fonts" == false ]]; then
+        local cask
+        while IFS= read -r cask; do
+            if ! "$brew_path" list --cask "$cask" >/dev/null 2>&1 &&
+                ! macos_font_files_exist "$cask"; then
+                missing_casks+=("$cask")
+            fi
+        done < <("$brew_path" bundle list --cask --file="$brewfile_path")
+    fi
+}
+
 install_macos_tools() {
     if [[ "$codespaces" == true ]]; then
         printf "Codespaces mode is not available on macOS.\n" >&2
@@ -105,22 +144,14 @@ install_macos_tools() {
         missing_homebrew=true
         missing_formulae=("gh" "starship")
         if [[ "$skip_fonts" == false ]]; then
-            missing_casks=("font-fira-code-nerd-font" "font-fira-mono-nerd-font")
-        fi
-    else
-        for formula in gh starship; do
-            if ! "$brew_path" list --formula "$formula" >/dev/null 2>&1; then
-                missing_formulae+=("$formula")
-            fi
-        done
-
-        if [[ "$skip_fonts" == false ]]; then
             for cask in font-fira-code-nerd-font font-fira-mono-nerd-font; do
-                if ! "$brew_path" list --cask "$cask" >/dev/null 2>&1; then
+                if ! macos_font_files_exist "$cask"; then
                     missing_casks+=("$cask")
                 fi
             done
         fi
+    else
+        collect_missing_macos_brewfile_entries
     fi
 
     if [[ "$missing_homebrew" == false &&
@@ -169,12 +200,18 @@ install_macos_tools() {
             printf "Homebrew was installed but the brew executable could not be located.\n" >&2
             exit 1
         fi
+
+        collect_missing_macos_brewfile_entries
+    fi
+
+    if (( ${#missing_formulae[@]} > 0 )); then
+        "$brew_path" install "${missing_formulae[@]}"
     fi
 
     if [[ "$skip_fonts" == false ]]; then
-        "$brew_path" bundle --file="$repository_root/Brewfile"
-    elif (( ${#missing_formulae[@]} > 0 )); then
-        "$brew_path" install "${missing_formulae[@]}"
+        for cask in "${missing_casks[@]}"; do
+            "$brew_path" install --cask "$cask"
+        done
     fi
 }
 
