@@ -20,8 +20,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Setup.ps1
 It installs:
 
 - Git for Windows
+- GitHub Copilot CLI
 - GitHub CLI
 - PowerShell 7
+- ripgrep
 - Starship
 - Windows Terminal
 - FiraCode and FiraMono Nerd Fonts for the current user
@@ -31,8 +33,8 @@ back up and replace conflicting dotfiles.
 
 ### macOS
 
-macOS setup installs Homebrew when necessary, then uses `Brewfile` to install GitHub CLI, Starship,
-and the two Nerd Font families:
+macOS setup installs Homebrew when necessary, then uses `Brewfile` to install GitHub Copilot CLI,
+GitHub CLI, ripgrep, Starship, and the two Nerd Font families:
 
 ```zsh
 bash scripts/setup.sh --dry-run
@@ -43,9 +45,9 @@ Use `--skip-fonts`, `--copy`, or `--replace` for the corresponding setup options
 
 ### Linux
 
-Linux setup currently supports Ubuntu and Debian. It installs Git when missing, GitHub CLI from its
-official package repository, Starship under `~/.local/bin`, and the two Nerd Font families for the
-current user:
+Linux setup currently supports Ubuntu and Debian. It installs Git when missing, GitHub Copilot CLI
+and Starship under `~/.local/bin`, GitHub CLI from its official package repository, ripgrep, and the
+two Nerd Font families for the current user:
 
 ```bash
 bash scripts/setup.sh --dry-run
@@ -91,6 +93,9 @@ Authenticate GitHub CLI on local machines:
 ```text
 gh auth login
 ```
+
+GitHub Copilot CLI requires an active Copilot subscription. On first launch, run `/login` and
+complete the authentication flow.
 
 For editors such as Visual Studio, Visual Studio Code, or Rider, use **FiraCode Nerd Font**. For
 terminals, use **FiraMono Nerd Font**. Application themes remain manual;

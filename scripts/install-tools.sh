@@ -118,15 +118,17 @@ collect_missing_macos_brewfile_entries() {
         fi
     done < <("$brew_path" bundle list --formula --file="$brewfile_path")
 
-    if [[ "$skip_fonts" == false ]]; then
-        local cask
-        while IFS= read -r cask; do
-            if ! "$brew_path" list --cask "$cask" >/dev/null 2>&1 &&
-                ! macos_font_files_exist "$cask"; then
-                missing_casks+=("$cask")
-            fi
-        done < <("$brew_path" bundle list --cask --file="$brewfile_path")
-    fi
+    local cask
+    while IFS= read -r cask; do
+        if [[ "$skip_fonts" == true && "$cask" == font-* ]]; then
+            continue
+        fi
+
+        if ! "$brew_path" list --cask "$cask" >/dev/null 2>&1 &&
+            ! macos_font_files_exist "$cask"; then
+            missing_casks+=("$cask")
+        fi
+    done < <("$brew_path" bundle list --cask --file="$brewfile_path")
 }
 
 install_macos_tools() {
@@ -142,7 +144,8 @@ install_macos_tools() {
 
     if [[ -z "$brew_path" ]]; then
         missing_homebrew=true
-        missing_formulae=("gh" "starship")
+        missing_formulae=("gh" "ripgrep" "starship")
+        missing_casks=("copilot-cli")
         if [[ "$skip_fonts" == false ]]; then
             for cask in font-fira-code-nerd-font font-fira-mono-nerd-font; do
                 if ! macos_font_files_exist "$cask"; then
@@ -169,7 +172,7 @@ install_macos_tools() {
         printf "  - %s\n" "$formula"
     done
     for cask in "${missing_casks[@]}"; do
-        printf "  - %s (per-user)\n" "$cask"
+        printf "  - %s\n" "$cask"
     done
 
     confirm_plan
@@ -208,11 +211,9 @@ install_macos_tools() {
         "$brew_path" install "${missing_formulae[@]}"
     fi
 
-    if [[ "$skip_fonts" == false ]]; then
-        for cask in "${missing_casks[@]}"; do
-            "$brew_path" install --cask "$cask"
-        done
-    fi
+    for cask in "${missing_casks[@]}"; do
+        "$brew_path" install --cask "$cask"
+    done
 }
 
 run_as_root() {
@@ -237,6 +238,22 @@ install_starship_user_local() {
     fi
 
     if ! sh "$installer" --yes --bin-dir "$HOME/.local/bin"; then
+        rm -f "$installer"
+        return 1
+    fi
+
+    rm -f "$installer"
+}
+
+install_copilot_user_local() {
+    local installer
+    installer=$(mktemp)
+    if ! curl -fsSL https://gh.io/copilot-install -o "$installer"; then
+        rm -f "$installer"
+        return 1
+    fi
+
+    if ! bash "$installer"; then
         rm -f "$installer"
         return 1
     fi
@@ -287,13 +304,17 @@ install_linux_tools() {
     fi
 
     missing_git=false
+    missing_copilot=false
     missing_gh=false
+    missing_ripgrep=false
     missing_starship=false
     missing_fonts=false
 
     if [[ "$codespaces" == false ]]; then
         command -v git >/dev/null 2>&1 || missing_git=true
+        command -v copilot >/dev/null 2>&1 || missing_copilot=true
         command -v gh >/dev/null 2>&1 || missing_gh=true
+        command -v rg >/dev/null 2>&1 || missing_ripgrep=true
     fi
 
     command -v starship >/dev/null 2>&1 ||
@@ -307,7 +328,9 @@ install_linux_tools() {
     fi
 
     if [[ "$missing_git" == false &&
+                    "$missing_copilot" == false &&
           "$missing_gh" == false &&
+                    "$missing_ripgrep" == false &&
           "$missing_starship" == false &&
           "$missing_fonts" == false ]]; then
         printf "All managed Linux tools are installed.\n"
@@ -316,7 +339,9 @@ install_linux_tools() {
 
     printf "The following tools will be installed:\n"
     [[ "$missing_git" == true ]] && printf "  - Git\n"
+    [[ "$missing_copilot" == true ]] && printf "  - GitHub Copilot CLI (user-local)\n"
     [[ "$missing_gh" == true ]] && printf "  - GitHub CLI\n"
+    [[ "$missing_ripgrep" == true ]] && printf "  - ripgrep\n"
     [[ "$missing_starship" == true ]] && printf "  - Starship (user-local)\n"
     if [[ "$missing_fonts" == true ]]; then
         printf "  - FiraCode Nerd Font (per-user)\n"
@@ -327,7 +352,9 @@ install_linux_tools() {
 
     apt_packages=()
     [[ "$missing_git" == true ]] && apt_packages+=("git")
-    if [[ "$missing_starship" == true || "$missing_fonts" == true || "$missing_gh" == true ]]; then
+    [[ "$missing_ripgrep" == true ]] && apt_packages+=("ripgrep")
+    if [[ "$missing_copilot" == true || "$missing_starship" == true ||
+        "$missing_fonts" == true || "$missing_gh" == true ]]; then
         command -v curl >/dev/null 2>&1 || apt_packages+=("curl")
         dpkg-query -W -f='${db:Status-Abbrev}' ca-certificates 2>/dev/null |
             grep -q '^ii ' || apt_packages+=("ca-certificates")
@@ -360,6 +387,10 @@ install_linux_tools() {
 
         run_as_root apt-get update
         run_as_root apt-get install -y gh
+    fi
+
+    if [[ "$missing_copilot" == true ]]; then
+        install_copilot_user_local
     fi
 
     if [[ "$missing_starship" == true ]]; then

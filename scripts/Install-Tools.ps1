@@ -58,8 +58,10 @@ $ErrorActionPreference = "Stop"
 # Keep package metadata declarative so discovery, planning, and installation use the same IDs.
 $packages = @(
     [pscustomobject]@{ Name = "Git for Windows"; Id = "Git.Git" },
+    [pscustomobject]@{ Name = "GitHub Copilot CLI"; Id = "GitHub.Copilot" },
     [pscustomobject]@{ Name = "GitHub CLI"; Id = "GitHub.cli" },
     [pscustomobject]@{ Name = "PowerShell 7"; Id = "Microsoft.PowerShell" },
+    [pscustomobject]@{ Name = "ripgrep"; Id = "BurntSushi.ripgrep.MSVC" },
     [pscustomobject]@{ Name = "Starship"; Id = "Starship.Starship" },
     [pscustomobject]@{ Name = "Windows Terminal"; Id = "Microsoft.WindowsTerminal" }
 )
