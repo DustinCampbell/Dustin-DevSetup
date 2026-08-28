@@ -17,6 +17,10 @@
 * Wrap Markdown prose at 100 columns by default. When editing an existing Markdown file, infer and follow that file's established wrapping convention instead.
 * Do not manually wrap Markdown prose in GitHub pull request descriptions. Keep each paragraph and list item on a single source line so GitHub does not preserve unwanted line breaks.
 
+## Code Formatting
+
+* Keep parameter and argument lists on one line when the full line is shorter than 120 characters; wrap them only when the line reaches or exceeds 120 characters.
+
 ## Available Tools
 
 * When an explicitly requested build fails because stale build processes are locking files, run
