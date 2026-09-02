@@ -19,7 +19,7 @@
 
 ## Code Formatting
 
-* Keep parameter and argument lists on one line when the full line is shorter than 120 characters; wrap them only when the line reaches or exceeds 120 characters.
+* Use approximately 140 characters as the threshold for wrapping parameter and argument lists; keep shorter lists on one line.
 
 ## Available Tools
 
