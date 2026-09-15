@@ -12,6 +12,9 @@
 ## Working Style
 
 * Optimize for my time. Prefer quick, direct inspection over broad searches, long-running commands, or redundant verification.
+* During long-running work, provide a brief progress update at least every three minutes, including while
+  waiting on tools or external operations. If no result is available yet, say what is still in progress or
+  blocking completion.
 * Do not run benchmarks locally merely to confirm that they execute; I use a dedicated VM for benchmark runs.
 * When I say Visual Studio is open, avoid commands that compile the repository or interfere with its files unless explicitly requested.
 * Wrap Markdown prose at 100 columns by default. When editing an existing Markdown file, infer and follow that file's established wrapping convention instead.
