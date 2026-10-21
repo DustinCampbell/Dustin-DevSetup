@@ -151,6 +151,10 @@ pwsh -NoProfile -File .\scripts\Set-WindowsTerminalSettings.ps1 -Replace -WhatIf
 pwsh -NoProfile -File .\scripts\Set-WindowsTerminalSettings.ps1 -Replace
 ```
 
+`-WhatIf` displays a unified diff of the current and proposed settings using temporary files under
+the system temporary directory. It does not write `settings.json` or create a backup. Git must be
+available to render the preview.
+
 The updater selects the most recently modified Terminal settings file by default. Pass
 `-AllTerminalSettings` to update every discovered Stable, Preview, Canary, and unpackaged
 configuration.

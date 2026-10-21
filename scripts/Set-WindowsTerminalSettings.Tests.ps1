@@ -81,7 +81,8 @@ Describe "Set-WindowsTerminalSettings.ps1" {
         $content | Should -Match '"keys": "ctrl\+v"'
         $content | Should -Match '"command": "paste"'
         $content | Should -Match '"keys": "ctrl\+shift\+v"'
-        $content | Should -Match "Dustin-DevSetup:"
+        $content | Should -Match ([regex]::Escape("// Let PSReadLine handle Ctrl+V so multiline input remains editable."))
+        $content | Should -Match ([regex]::Escape("// Keep Ctrl+Shift+V as Windows Terminal's direct paste shortcut."))
     }
 
     It "preserves comments and unrelated machine-specific settings" {
@@ -181,6 +182,7 @@ $preservedBlock
 
         Invoke-SettingsUpdater -Path $settingsPath -Replace | Out-Null
 
+        [System.IO.File]::ReadAllText($settingsPath) | Should -Not -Match '"keys"\s*:\s*\[\s*\]'
         (Invoke-SettingsUpdater -Path $settingsPath -Check)[0].State | Should -Be "Current"
     }
 
@@ -275,6 +277,37 @@ $preservedBlock
         (Invoke-SettingsUpdater -Path $settingsPath -Check)[0].State | Should -Be "Current"
     }
 
+    It "repurposes a conflicting modern single-key binding instead of emptying its keys" {
+        $content = @'
+{
+    "actions":
+    [
+        {
+            "command": "paste",
+            "id": "User.paste"
+        }
+    ],
+    "keybindings":
+    [
+        {
+            "id": "User.paste",
+            "keys": "ctrl+v"
+        }
+    ]
+}
+'@
+        Write-Utf8TestFile -Path $settingsPath -Content $content
+
+        Invoke-SettingsUpdater -Path $settingsPath -Replace | Out-Null
+        $updated = [System.IO.File]::ReadAllText($settingsPath)
+
+        $updated | Should -Match ([regex]::Escape("// Let PSReadLine handle Ctrl+V so multiline input remains editable."))
+        $updated | Should -Match '"id"\s*:\s*null'
+        $updated | Should -Match '"keys"\s*:\s*"ctrl\+v"'
+        $updated | Should -Not -Match '"keys"\s*:\s*\[\s*\]'
+        (Invoke-SettingsUpdater -Path $settingsPath -Check)[0].State | Should -Be "Current"
+    }
+
     It "recognizes chord casing and modifier ordering" {
         $content = @'
 {
@@ -343,12 +376,56 @@ $preservedBlock
         $content = "{}"
         Write-Utf8TestFile -Path $settingsPath -Content $content
 
-        $result = Invoke-SettingsUpdater -Path $settingsPath -WhatIf
+        $preview = @()
+        $result = @(
+            & $scriptUnderTest `
+                -SettingsPath $settingsPath `
+                -PassThru `
+                -WhatIf `
+                -InformationVariable +preview
+        )
+        $previewText = @($preview | ForEach-Object { [string]$_.MessageData }) -join "`n"
 
         $result[0].State | Should -Be "Missing"
         $result[0].Changed | Should -BeFalse
+        $previewText | Should -Match ([regex]::Escape("--- a/$($settingsPath.Replace('\', '/'))"))
+        $previewText | Should -Match ([regex]::Escape("+++ b/$($settingsPath.Replace('\', '/'))"))
+        $previewText | Should -Match '\+\s+"command": "unbound"'
+        $previewText | Should -Match '\+\s+"command": "paste"'
         [System.IO.File]::ReadAllText($settingsPath) | Should -BeExactly $content
         (Get-SettingsBackups -Path $settingsPath).Count | Should -Be 0
+    }
+
+    It "shows removals and additions for conflicting bindings under WhatIf" {
+        $content = @'
+{
+    "actions":
+    [
+        {
+            "command": "paste",
+            "keys": "ctrl+v"
+        }
+    ]
+}
+'@
+        Write-Utf8TestFile -Path $settingsPath -Content $content
+        $preview = @()
+
+        $result = @(
+            & $scriptUnderTest `
+                -SettingsPath $settingsPath `
+                -Replace `
+                -PassThru `
+                -WhatIf `
+                -InformationVariable +preview
+        )
+        $previewText = @($preview | ForEach-Object { [string]$_.MessageData }) -join "`n"
+
+        $result[0].State | Should -Be "Conflict"
+        $previewText | Should -Match '-\s+"command": "paste"'
+        $previewText | Should -Match '\+\s+"command": "unbound"'
+        $previewText | Should -Not -Match '\+\s+"keys": \[\]'
+        [System.IO.File]::ReadAllText($settingsPath) | Should -BeExactly $content
     }
 
     It "does not modify a file in Check mode" {

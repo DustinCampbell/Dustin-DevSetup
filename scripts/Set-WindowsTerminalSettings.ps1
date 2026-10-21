@@ -55,6 +55,11 @@ The script exits with code 1 when invoked directly and any settings file is miss
 Returns structured state objects and suppresses the direct-invocation exit behavior. This is used
 by Install-Dotfiles.ps1 to include Windows Terminal state in its own check and conflict handling.
 
+.PARAMETER WhatIf
+Displays a unified diff of the current and proposed settings before PowerShell reports the planned
+write. Git is used only to render the diff from temporary files under the system temporary
+directory; no file is created beside settings.json and no backup is created.
+
 .EXAMPLE
 pwsh -NoProfile -File .\scripts\Set-WindowsTerminalSettings.ps1 -Check
 
@@ -99,12 +104,12 @@ $managedBindings = @(
     [pscustomobject]@{
         Chord = "ctrl+v"
         Command = "unbound"
-        Comment = "Let PSReadLine paste multiline text into its editable command buffer."
+        Comment = "Let PSReadLine handle Ctrl+V so multiline input remains editable."
     },
     [pscustomobject]@{
         Chord = "ctrl+shift+v"
         Command = "paste"
-        Comment = "Preserve Windows Terminal's immediate paste behavior as an alternative."
+        Comment = "Keep Ctrl+Shift+V as Windows Terminal's direct paste shortcut."
     }
 )
 
@@ -634,6 +639,38 @@ function Get-ActionCommand {
     $null
 }
 
+function Get-ActionCommandValueTokenIndex {
+    param(
+        [Parameter(Mandatory)]
+        [object[]]$Tokens,
+
+        [Parameter(Mandatory)]
+        [object[]]$Properties
+    )
+
+    $commandProperty = Get-LastJsoncProperty -Properties $Properties -Name "command"
+    if ($null -eq $commandProperty) {
+        return $null
+    }
+
+    $commandToken = $Tokens[$commandProperty.ValueStartIndex]
+    if ($commandToken.Kind -eq "String") {
+        return $commandProperty.ValueStartIndex
+    }
+
+    if ($commandToken.Value -ne "{") {
+        return $null
+    }
+
+    $commandObject = Get-JsoncObjectProperties -Tokens $Tokens -ObjectStartIndex $commandProperty.ValueStartIndex
+    $actionProperty = Get-LastJsoncProperty -Properties $commandObject.Properties -Name "action"
+    if ($null -eq $actionProperty -or $Tokens[$actionProperty.ValueStartIndex].Kind -ne "String") {
+        return $null
+    }
+
+    $actionProperty.ValueStartIndex
+}
+
 function Get-ActionCommandsById {
     param(
         [Parameter(Mandatory)]
@@ -746,6 +783,7 @@ function Get-BindingEntries {
         $entries.Add([pscustomobject]@{
             ArrayName = $ArrayName
             Element = $element
+            Properties = $actionObject.Properties
             KeysProperty = $keysProperty
             Keys = $keys
             Command = if ($ArrayName -eq "actions") {
@@ -831,6 +869,10 @@ function Add-KeyRemovalEdits {
         $Binding.Keys.Items |
             Where-Object { -not $tokenIndexesToRemove.Contains([int]$_.TokenIndex) }
     )
+    if ($remainingItems.Count -eq 0) {
+        throw "Internal error: a Windows Terminal keybinding cannot have every key chord removed."
+    }
+
     $commaIndexesToKeep = [System.Collections.Generic.HashSet[int]]::new()
     if ($remainingItems.Count -gt 1) {
         foreach ($item in $remainingItems[0..($remainingItems.Count - 2)]) {
@@ -851,6 +893,94 @@ function Add-KeyRemovalEdits {
             $Edits.Add((New-TextEdit -Start $commaToken.Start -Length ($commaToken.End - $commaToken.Start) -Replacement ""))
         }
     }
+}
+
+function Add-BindingCommandReplacementEdit {
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [System.Collections.Generic.List[object]]$Edits,
+
+        [Parameter(Mandatory)]
+        [object[]]$Tokens,
+
+        [Parameter(Mandatory)]
+        [object]$Binding,
+
+        [Parameter(Mandatory)]
+        [string]$Command
+    )
+
+    if ($Binding.ArrayName -eq "keybindings") {
+        $idProperty = Get-LastJsoncProperty -Properties $Binding.Properties -Name "id"
+        if ($null -ne $idProperty) {
+            $idToken = $Tokens[$idProperty.ValueStartIndex]
+            $replacement = if ($Command -eq "unbound") {
+                "null"
+            }
+            elseif ($Command -eq "paste") {
+                '"Terminal.PasteFromClipboard"'
+            }
+            else {
+                throw "Unsupported managed Windows Terminal command: $Command"
+            }
+
+            $Edits.Add((
+                New-TextEdit `
+                    -Start $idToken.Start `
+                    -Length ($idToken.End - $idToken.Start) `
+                    -Replacement $replacement
+            ))
+            return
+        }
+    }
+
+    $commandTokenIndex = Get-ActionCommandValueTokenIndex `
+        -Tokens $Tokens `
+        -Properties $Binding.Properties
+    if ($null -eq $commandTokenIndex) {
+        throw "Unable to replace a conflicting Windows Terminal binding command."
+    }
+
+    $commandToken = $Tokens[$commandTokenIndex]
+    $Edits.Add((
+        New-TextEdit `
+            -Start $commandToken.Start `
+            -Length ($commandToken.End - $commandToken.Start) `
+            -Replacement "`"$Command`""
+    ))
+}
+
+function Add-BindingCommentEdit {
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [System.Collections.Generic.List[object]]$Edits,
+
+        [Parameter(Mandatory)]
+        [string]$Text,
+
+        [Parameter(Mandatory)]
+        [object[]]$Tokens,
+
+        [Parameter(Mandatory)]
+        [object]$Binding,
+
+        [Parameter(Mandatory)]
+        [string]$Comment,
+
+        [Parameter(Mandatory)]
+        [string]$NewLine
+    )
+
+    $elementStartToken = $Tokens[$Binding.Element.ValueStartIndex]
+    $indent = Get-LineIndent -Text $Text -Position $elementStartToken.Start
+    $Edits.Add((
+        New-TextEdit `
+            -Start $elementStartToken.Start `
+            -Length 0 `
+            -Replacement "// $Comment$NewLine$indent"
+    ))
 }
 
 function Get-LineIndent {
@@ -908,7 +1038,7 @@ function Format-ManagedAction {
 
     $innerIndent = $ElementIndent + $IndentUnit
     @(
-        "// Dustin-DevSetup: $($Binding.Comment)"
+        "// $($Binding.Comment)"
         "$ElementIndent{"
         "$innerIndent`"command`": `"$($Binding.Command)`","
         "$innerIndent`"keys`": `"$($Binding.Chord)`""
@@ -1061,6 +1191,123 @@ function Invoke-TextEdits {
     $result
 }
 
+function Write-DiffLine {
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyString()]
+        [string]$Line,
+
+        [Parameter(Mandatory)]
+        [bool]$UseColor
+    )
+
+    if (-not $UseColor) {
+        Write-Host $Line
+        return
+    }
+
+    $escape = [char]27
+    $reset = "$escape[0m"
+    $color = if ($Line.StartsWith("+++") -or $Line.StartsWith("---") -or $Line.StartsWith("@@")) {
+        "$escape[36m"
+    }
+    elseif ($Line.StartsWith("+")) {
+        "$escape[32m"
+    }
+    elseif ($Line.StartsWith("-")) {
+        "$escape[31m"
+    }
+    else {
+        ""
+    }
+
+    if ($color.Length -eq 0) {
+        Write-Host $Line
+    }
+    else {
+        Write-Host "$color$Line$reset"
+    }
+}
+
+function Show-UnifiedDiff {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Path,
+
+        [AllowNull()]
+        [string]$BeforeText,
+
+        [Parameter(Mandatory)]
+        [string]$AfterText
+    )
+
+    $git = Get-Command git -ErrorAction SilentlyContinue
+    if ($null -eq $git) {
+        throw "Git is required to render the Windows Terminal settings diff for -WhatIf."
+    }
+
+    $temporaryDirectory = Join-Path (
+        [System.IO.Path]::GetTempPath()
+    ) "devsetup-terminal-diff-$([guid]::NewGuid().ToString('N'))"
+    $beforePath = Join-Path $temporaryDirectory "before\settings.json"
+    $afterPath = Join-Path $temporaryDirectory "after\settings.json"
+    $encoding = [System.Text.UTF8Encoding]::new($false)
+
+    try {
+        New-Item -ItemType Directory -Path (Split-Path -Parent $beforePath) -Force -WhatIf:$false | Out-Null
+        New-Item -ItemType Directory -Path (Split-Path -Parent $afterPath) -Force -WhatIf:$false | Out-Null
+        [System.IO.File]::WriteAllText($beforePath, $(if ($null -eq $BeforeText) { "" } else { $BeforeText }), $encoding)
+        [System.IO.File]::WriteAllText($afterPath, $AfterText, $encoding)
+
+        $diffLines = @(
+            & $git.Source `
+                --no-pager `
+                -c core.safecrlf=false `
+                diff `
+                --no-index `
+                --no-ext-diff `
+                --no-textconv `
+                --text `
+                --unified=3 `
+                --color=never `
+                -- `
+                $beforePath `
+                $afterPath 2>&1
+        )
+        $diffExitCode = $LASTEXITCODE
+        if ($diffExitCode -ne 0 -and $diffExitCode -ne 1) {
+            throw "Git could not render the settings diff:`n$($diffLines -join "`n")"
+        }
+
+        $displayPath = $Path.Replace("\", "/")
+        $supportsVirtualTerminalProperty = $Host.UI.PSObject.Properties["SupportsVirtualTerminal"]
+        $useColor = (
+            $null -ne $supportsVirtualTerminalProperty -and
+            [bool]$supportsVirtualTerminalProperty.Value -and
+            -not [Console]::IsOutputRedirected
+        )
+        foreach ($lineObject in $diffLines) {
+            $line = [string]$lineObject
+            if ($line.StartsWith("diff --git ")) {
+                $line = "diff --git a/$displayPath b/$displayPath"
+            }
+            elseif ($line.StartsWith("--- ")) {
+                $line = "--- a/$displayPath"
+            }
+            elseif ($line.StartsWith("+++ ")) {
+                $line = "+++ b/$displayPath"
+            }
+
+            Write-DiffLine -Line $line -UseColor $useColor
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $temporaryDirectory -PathType Container) {
+            Remove-Item -LiteralPath $temporaryDirectory -Recurse -Force -WhatIf:$false
+        }
+    }
+}
+
 function Read-Utf8File {
     param(
         [Parameter(Mandatory)]
@@ -1162,6 +1409,7 @@ function Get-WindowsTerminalSettingsUpdate {
             Path = $Path
             State = "Missing"
             Reason = "The settings file does not exist."
+            OriginalText = $null
             Text = $text
             HasBom = $false
             Existing = $false
@@ -1300,6 +1548,7 @@ function Get-WindowsTerminalSettingsUpdate {
             Path = $Path
             State = $state
             Reason = "The managed keybindings are current."
+            OriginalText = $text
             Text = $text
             HasBom = $file.HasBom
             Existing = $true
@@ -1314,6 +1563,7 @@ function Get-WindowsTerminalSettingsUpdate {
     }
 
     $edits = [System.Collections.Generic.List[object]]::new()
+    $newLine = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
     if ($hasConflict) {
         $neutralizationsByEntry = @(
             $bindingsToNeutralize |
@@ -1322,11 +1572,66 @@ function Get-WindowsTerminalSettingsUpdate {
         foreach ($group in $neutralizationsByEntry) {
             $entry = $group.Group[0].Entry
             $chords = @($group.Group | ForEach-Object { $_.Chord })
-            Add-KeyRemovalEdits -Edits $edits -Tokens $tokens -Binding $entry -Chords $chords
+            $normalizedChords = [System.Collections.Generic.HashSet[string]]::new(
+                [System.StringComparer]::OrdinalIgnoreCase
+            )
+            foreach ($chord in $chords) {
+                $null = $normalizedChords.Add((Normalize-KeyChord $chord))
+            }
+
+            $remainingKeys = @(
+                $entry.Keys.Items |
+                    Where-Object {
+                        -not $normalizedChords.Contains((Normalize-KeyChord $_.Value))
+                    }
+            )
+            if ($remainingKeys.Count -eq 0) {
+                $bindingToPreserve = $managedBindings |
+                    Where-Object {
+                        $normalizedChords.Contains((Normalize-KeyChord $_.Chord))
+                    } |
+                    Select-Object -First 1
+                if ($null -eq $bindingToPreserve) {
+                    throw "Unable to preserve a valid Windows Terminal keybinding."
+                }
+
+                Add-BindingCommandReplacementEdit `
+                    -Edits $edits `
+                    -Tokens $tokens `
+                    -Binding $entry `
+                    -Command $bindingToPreserve.Command
+                Add-BindingCommentEdit `
+                    -Edits $edits `
+                    -Text $text `
+                    -Tokens $tokens `
+                    -Binding $entry `
+                    -Comment $bindingToPreserve.Comment `
+                    -NewLine $newLine
+
+                $preservedChord = Normalize-KeyChord $bindingToPreserve.Chord
+                $chords = @(
+                    $chords |
+                        Where-Object {
+                            (Normalize-KeyChord $_) -ne $preservedChord
+                        }
+                )
+
+                $bindingToRemove = $bindingsToAdd |
+                    Where-Object {
+                        (Normalize-KeyChord $_.Chord) -eq $preservedChord
+                    } |
+                    Select-Object -First 1
+                if ($null -ne $bindingToRemove) {
+                    $null = $bindingsToAdd.Remove($bindingToRemove)
+                }
+            }
+
+            if ($chords.Count -gt 0) {
+                Add-KeyRemovalEdits -Edits $edits -Tokens $tokens -Binding $entry -Chords $chords
+            }
         }
     }
 
-    $newLine = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
     Add-ManagedActionsEdits `
         -Edits $edits `
         -Text $text `
@@ -1346,6 +1651,7 @@ function Get-WindowsTerminalSettingsUpdate {
         else {
             "One or more managed keybindings are missing."
         }
+        OriginalText = $text
         Text = Invoke-TextEdits -Text $text -Edits @($edits)
         HasBom = $file.HasBom
         Existing = $true
@@ -1357,6 +1663,13 @@ foreach ($path in @(Resolve-WindowsTerminalSettingsPath)) {
     $update = Get-WindowsTerminalSettingsUpdate -Path $path
     $backupPath = $null
     $changed = $update.State -ne "Current"
+
+    if (-not $Check -and $changed -and $WhatIfPreference) {
+        Show-UnifiedDiff `
+            -Path $path `
+            -BeforeText $update.OriginalText `
+            -AfterText $update.Text
+    }
 
     if (-not $Check -and $changed) {
         if ($PSCmdlet.ShouldProcess($path, "Configure Windows Terminal multiline paste keybindings")) {
