@@ -1,0 +1,35 @@
+name: Validate Git aliases
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/validate-git-aliases.yml
+      - dotfiles/git/gitconfig
+      - scripts/Test-GitAliases.ps1
+  pull_request:
+    paths:
+      - .github/workflows/validate-git-aliases.yml
+      - dotfiles/git/gitconfig
+      - scripts/Test-GitAliases.ps1
+  workflow_dispatch:
+
+jobs:
+  aliases:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate aliases
+        shell: pwsh
+        run: ./scripts/Test-GitAliases.ps1

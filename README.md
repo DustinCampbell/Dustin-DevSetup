@@ -251,3 +251,11 @@ Use the built-in Terminal with Zsh. No third-party terminal application is provi
 Aliases are stored in `dotfiles/git/gitconfig`, while personal identity is stored separately in
 `dotfiles/git/identity.gitconfig`. Local-machine installers include both files. Codespaces includes
 only the aliases so its system-managed identity and signing configuration remain authoritative.
+
+Run the cross-platform Git alias validation locally with:
+
+```powershell
+pwsh -NoProfile -File .\scripts\Test-GitAliases.ps1
+```
+
+The `Validate Git aliases` GitHub Actions workflow runs the same script on Linux, macOS, and Windows.

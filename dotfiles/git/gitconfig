@@ -1,3 +1,13 @@
+# Keep scripts/Test-GitAliases.ps1 in sync when adding or changing aliases.
 [alias]
+    aliases = config --get-regexp ^alias[.]
+    fixup = commit --fixup
     last = log -1 HEAD --stat
     list = log --oneline
+    reword = "!f() { if [ \"$#\" -ne 1 ]; then echo \"usage: git reword <commit>\" >&2; return 2; fi; git commit --fixup=\"reword:$1\"; }; f"
+    reword-last = commit --amend --only
+    staged = diff --cached
+    unstage = restore --staged --
+
+[fetch]
+    prune = true
