@@ -13,8 +13,9 @@ backup paths and restored if installing their replacements fails.
 
 The PowerShell profile loader is always copied because its OneDrive-managed destination must remain
 a regular file. The installer also ensures that the managed Git configuration and identity files
-are included by the global Git configuration. Use Check for a read-only drift report or WhatIf to
-preview installation actions.
+are included by the global Git configuration, then invokes Set-WindowsTerminalSettings.ps1 to
+configure multiline paste without replacing the user's complete Terminal configuration. Use Check
+for a read-only drift report or WhatIf to preview installation actions.
 
 .PARAMETER Mode
 Controls how managed files are installed. Link creates symbolic links to the canonical repository
@@ -22,11 +23,14 @@ files and is the default. Copy creates regular files containing the current cano
 
 .PARAMETER Replace
 Allows conflicting destinations to be moved to timestamped backup paths before their replacements
-are installed. Existing files are never replaced without this switch.
+are installed. It also allows conflicting Windows Terminal keybindings to be replaced after the
+user-owned settings file is backed up. Existing configuration is never replaced without this
+switch.
 
 .PARAMETER Check
-Reports the state of every file mapping and required global Git include without making changes.
-The script exits with code 1 when any item is missing or conflicting.
+Reports the state of every file mapping, required global Git include, and managed Windows Terminal
+keybinding without making changes. The script exits with code 1 when any item is missing or
+conflicting.
 
 .EXAMPLE
 pwsh -NoProfile -File .\scripts\Install-Dotfiles.ps1 -Check
@@ -65,6 +69,11 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
+$windowsTerminalSettingsScript = Join-Path $PSScriptRoot "Set-WindowsTerminalSettings.ps1"
+
+if (-not (Test-Path -LiteralPath $windowsTerminalSettingsScript -PathType Leaf)) {
+    throw "The Windows Terminal settings script is missing: $windowsTerminalSettingsScript"
+}
 
 # Most destinations honor Mode; the profile loader is copied to keep its host-managed path regular.
 $mappings = @(
@@ -273,6 +282,11 @@ $gitIncludeStates = @(
     }
 )
 
+# Check Terminal settings separately because the file is user-owned rather than a dotfile mapping.
+$windowsTerminalSettingsStates = @(
+    & $windowsTerminalSettingsScript -Check -PassThru
+)
+
 # Check mode is read-only and uses its exit code to make drift detectable by automation.
 if ($Check) {
     $hasDrift = $false
@@ -295,6 +309,17 @@ if ($Check) {
         }
     }
 
+    foreach ($windowsTerminalSettingsState in $windowsTerminalSettingsStates) {
+        Write-Host (
+            "{0,-8} {1}" -f
+                $windowsTerminalSettingsState.State.ToUpperInvariant(),
+                $windowsTerminalSettingsState.Path
+        )
+        if ($windowsTerminalSettingsState.State -ne "Current") {
+            $hasDrift = $true
+        }
+    }
+
     if ($hasDrift) {
         exit 1
     }
@@ -304,10 +329,16 @@ if ($Check) {
 
 # Refuse every conflicting mapping before applying any partial installation.
 $conflicts = @($states | Where-Object { $_.State -eq "Conflict" })
-if ($conflicts.Count -gt 0 -and -not $Replace) {
+$windowsTerminalConflicts = @(
+    $windowsTerminalSettingsStates |
+        Where-Object { $_.State -eq "Conflict" }
+)
+if (($conflicts.Count -gt 0 -or $windowsTerminalConflicts.Count -gt 0) -and -not $Replace) {
     $conflictingPaths = @(
         $conflicts |
             ForEach-Object { "$($_.Mapping.Destination) ($($_.Mapping.Mode))" }
+        $windowsTerminalConflicts |
+            ForEach-Object { "$($_.Path) (Windows Terminal settings)" }
     ) -join "`n"
     throw "Existing files differ from the requested installation. Re-run with -Replace to back them up first:`n$conflictingPaths"
 }
@@ -388,5 +419,33 @@ foreach ($gitIncludeState in $gitIncludeStates) {
         }
 
         Write-Host "Installed: $($gitIncludeMapping.Name)"
+    }
+}
+
+$windowsTerminalArguments = @{
+    PassThru = $true
+}
+if ($Replace) {
+    $windowsTerminalArguments.Replace = $true
+}
+if ($WhatIfPreference) {
+    $windowsTerminalArguments.WhatIf = $true
+}
+
+$windowsTerminalResults = @(
+    & $windowsTerminalSettingsScript @windowsTerminalArguments
+)
+foreach ($windowsTerminalResult in $windowsTerminalResults) {
+    if ($windowsTerminalResult.State -eq "Current") {
+        Write-Host "Current: Windows Terminal settings ($($windowsTerminalResult.Path))"
+    }
+    elseif ($WhatIfPreference) {
+        Write-Host "Planned: Windows Terminal settings ($($windowsTerminalResult.Path))"
+    }
+    else {
+        Write-Host "Updated: Windows Terminal settings ($($windowsTerminalResult.Path))"
+        if ($null -ne $windowsTerminalResult.BackupPath) {
+            Write-Host "Backup: $($windowsTerminalResult.BackupPath)"
+        }
     }
 }

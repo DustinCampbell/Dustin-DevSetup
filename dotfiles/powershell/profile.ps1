@@ -53,6 +53,10 @@ Set-LocationProjects
 $ENV:STARSHIP_CONFIG = Join-Path $HOME ".config\starship.toml"
 Invoke-Expression (&starship init powershell)
 
+if ($null -ne (Get-Command Set-PSReadLineKeyHandler -ErrorAction SilentlyContinue)) {
+    Set-PSReadLineKeyHandler -Chord Ctrl+v -Function Paste
+}
+
 $localProfile = Join-Path $HOME ".config\powershell\profile.local.ps1"
 if (Test-Path -LiteralPath $localProfile) {
     . $localProfile

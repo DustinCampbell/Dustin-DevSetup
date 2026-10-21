@@ -7,7 +7,8 @@ Coordinates the Windows setup scripts in the required order. It first invokes In
 install missing development tools and optional Nerd Fonts. It then refreshes the current process's
 PATH so a newly installed PowerShell 7 executable can be discovered without restarting the shell.
 Finally, it launches Install-Dotfiles.ps1 under PowerShell 7 because Windows PowerShell and
-PowerShell 7 use different profile locations.
+PowerShell 7 use different profile locations. The dotfile stage also configures the user-owned
+Windows Terminal settings file with the managed multiline-paste keybindings.
 
 Tool-installation parameters are forwarded to Install-Tools.ps1, while dotfile parameters are
 forwarded to Install-Dotfiles.ps1. WhatIf is forwarded to both stages. During a dry run where
@@ -19,8 +20,8 @@ Skips the interactive tool-installation confirmation. This parameter is forwarde
 Install-Tools.ps1 and does not alter dotfile conflict handling.
 
 .PARAMETER Replace
-Allows Install-Dotfiles.ps1 to back up and replace conflicting dotfile destinations. Existing
-dotfiles are never replaced when this switch is omitted.
+Allows Install-Dotfiles.ps1 to back up and replace conflicting dotfile destinations and Windows
+Terminal keybindings. Existing configuration is never replaced when this switch is omitted.
 
 .PARAMETER SkipFonts
 Excludes Nerd Fonts from tool discovery and installation. This parameter is forwarded to

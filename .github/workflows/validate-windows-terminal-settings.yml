@@ -1,0 +1,31 @@
+name: Validate Windows Terminal settings
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/validate-windows-terminal-settings.yml
+      - scripts/Set-WindowsTerminalSettings.ps1
+      - scripts/Set-WindowsTerminalSettings.Tests.ps1
+  pull_request:
+    paths:
+      - .github/workflows/validate-windows-terminal-settings.yml
+      - scripts/Set-WindowsTerminalSettings.ps1
+      - scripts/Set-WindowsTerminalSettings.Tests.ps1
+  workflow_dispatch:
+
+jobs:
+  pester:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Pester
+        shell: pwsh
+        run: Install-Module -Name Pester -MinimumVersion 5.5.0 -Force -Scope CurrentUser -SkipPublisherCheck
+
+      - name: Validate Windows Terminal settings updater
+        shell: pwsh
+        run: Invoke-Pester -Path ./scripts/Set-WindowsTerminalSettings.Tests.ps1 -CI

@@ -29,7 +29,7 @@ It installs:
 - FiraCode and FiraMono Nerd Fonts for the current user
 
 Use `-SkipFonts` to omit fonts, `-Mode Copy` when symbolic links are unavailable, or `-Replace` to
-back up and replace conflicting dotfiles.
+back up and replace conflicting dotfiles or Windows Terminal keybindings.
 
 ### macOS
 
@@ -136,6 +136,38 @@ The installer places a regular loader at `$PROFILE.CurrentUserAllHosts` that loa
 `~\.config\devsetup\profile.ps1`. This avoids placing an unsupported symbolic link in a
 OneDrive-managed Documents folder while keeping the full profile canonical in this repository.
 
+The installer also calls `scripts\Set-WindowsTerminalSettings.ps1` to configure multiline paste.
+Windows Terminal's complete `settings.json` remains user-owned so each machine can retain its own
+profiles and other local settings. The updater tokenizes the JSONC source and changes only the
+managed keybindings, preserving existing comments, formatting, property order, and trailing
+commas. Conflicting explicit bindings require `-Replace` and the existing file is backed up before
+it is changed.
+
+Run the Terminal updater independently when needed:
+
+```PowerShell
+pwsh -NoProfile -File .\scripts\Set-WindowsTerminalSettings.ps1 -Check
+pwsh -NoProfile -File .\scripts\Set-WindowsTerminalSettings.ps1 -Replace -WhatIf
+pwsh -NoProfile -File .\scripts\Set-WindowsTerminalSettings.ps1 -Replace
+```
+
+The updater selects the most recently modified Terminal settings file by default. Pass
+`-AllTerminalSettings` to update every discovered Stable, Preview, Canary, and unpackaged
+configuration.
+
+Run the Windows Terminal updater tests with Pester 5.5 or later:
+
+```PowerShell
+Invoke-Pester -Path .\scripts\Set-WindowsTerminalSettings.Tests.ps1 -CI
+```
+
+The managed PowerShell profile binds `Ctrl+V` to PSReadLine's `Paste` function. Windows Terminal
+unbinds `Ctrl+V` so the keystroke reaches PSReadLine, while `Ctrl+Shift+V` retains Terminal's
+immediate paste behavior. Right-click paste is unchanged. The updater does not change Terminal's
+multiline-paste warning because that warning only controls confirmation and does not make immediate
+paste atomic. Close the Windows Terminal Settings UI before applying changes so it cannot overwrite
+the updated file with an older in-memory copy.
+
 Creating symbolic links without elevation requires Windows Developer Mode. If symbolic links are
 unavailable, use `-Mode Copy`; rerun the installer with `-Check` to detect drift and `-Replace` to
 synchronize changed copies. The PowerShell loader is always copied because it must remain a regular
@@ -241,6 +273,13 @@ Preview candidates before stopping them:
 Use Windows Terminal. Themes from
 [Windows Terminal Themes](https://windowsterminalthemes.dev/) can be applied manually;
 **Dark Pastel** is the preferred option.
+
+Windows Terminal fragments cannot define keybindings, so the multiline-paste bindings must be
+stored in the root `settings.json`. The repository deliberately manages only those bindings rather
+than the complete file. See Microsoft's
+[JSON fragment documentation](https://learn.microsoft.com/windows/terminal/json-fragment-extensions)
+and the Windows Terminal
+[keybinding limitation](https://github.com/microsoft/terminal/issues/17240).
 
 ### macOS
 
