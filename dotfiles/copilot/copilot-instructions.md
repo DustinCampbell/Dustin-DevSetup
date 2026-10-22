@@ -12,6 +12,9 @@
 ## Working Style
 
 * Optimize for my time. Prefer quick, direct inspection over broad searches, long-running commands, or redundant verification.
+* Use emojis to communicate meaning at a glance, set expectations before longer text, and make data easier to
+  scan. Prefer purposeful visual cues over decorative or excessive emoji use, and do not rely on emojis alone
+  to convey essential information.
 * During long-running work, provide a brief progress update at least every three minutes, including while
   waiting on tools or external operations. If no result is available yet, say what is still in progress or
   blocking completion.
